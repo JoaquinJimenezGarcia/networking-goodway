@@ -1,2 +1,9 @@
 #!/usr/bin/env bash
-daily_tool_count_min() { echo 8; }
+# Daily tool count minimum from consolidation drill.
+daily_tool_count_min() { printf "%s\n" "8"; }
+
+# Must include packet capture tool.
+capture_tool() { printf "%s\n" "tcpdump"; }
+
+# Must include HTTP client.
+http_client_tool() { printf "%s\n" "curl"; }

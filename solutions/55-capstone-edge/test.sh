@@ -5,7 +5,11 @@ cd "$ROOT"
 pass=0
 fail=0
 assert_eq() {
-  local got=$1 want=$2 msg=${3:-}
+  # Assign after `local` so values like -n are not parsed as local(1) flags.
+  local got want msg
+  got=$1
+  want=$2
+  msg=${3:-}
   if [[ "$got" == "$want" ]]; then
     pass=$((pass + 1))
   else
@@ -17,6 +21,8 @@ assert_eq() {
 source "$ROOT/solution.sh"
 run_tests() {
   assert_eq "$(edge_should_terminate)" "TLS"
+  assert_eq "$(forward_ip_from)" "trusted-proxies-only"
+  assert_eq "$(health_checks_hit)" "upstream"
 }
 run_tests
 echo "Passed $pass failed $fail"

@@ -1,2 +1,9 @@
 #!/usr/bin/env bash
-ethernet_typical_mtu() { echo 1500; }
+# Typical Ethernet MTU in bytes.
+ethernet_typical_mtu() { printf "%s\n" "1500"; }
+
+# What VPN headers usually do to effective MTU.
+vpn_overhead_effect() { printf "%s\n" "lowers-MTU"; }
+
+# Why run large DF pings.
+df_ping_purpose() { printf "%s\n" "probe-path-MTU"; }

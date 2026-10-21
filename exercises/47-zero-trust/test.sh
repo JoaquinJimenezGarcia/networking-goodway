@@ -5,7 +5,11 @@ cd "$ROOT"
 pass=0
 fail=0
 assert_eq() {
-  local got=$1 want=$2 msg=${3:-}
+  # Assign after `local` so values like -n are not parsed as local(1) flags.
+  local got want msg
+  got=$1
+  want=$2
+  msg=${3:-}
   if [[ "$got" == "$want" ]]; then
     pass=$((pass + 1))
   else
@@ -17,6 +21,8 @@ assert_eq() {
 source "$ROOT/exercise.sh"
 run_tests() {
   assert_eq "$(zero_trust_rejects)" "location-only-trust"
+  assert_eq "$(verify_every_request)" "yes"
+  assert_eq "$(prefer_identity_or_location)" "identity"
 }
 run_tests
 echo "Passed $pass failed $fail"

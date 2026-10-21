@@ -1,2 +1,9 @@
 #!/usr/bin/env bash
-ssh_local_forward_flag() { echo "-L"; }
+# ssh local forward flag.
+ssh_local_forward_flag() { printf "%s\n" "-L"; }
+
+# ssh remote forward flag.
+ssh_remote_forward_flag() { printf "%s\n" "-R"; }
+
+# ssh dynamic SOCKS flag.
+ssh_dynamic_flag() { printf "%s\n" "-D"; }

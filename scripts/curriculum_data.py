@@ -6,7 +6,21 @@ from __future__ import annotations
 MODULES: list[dict] = []
 
 
-def add(n, slug, title, phase, days, objectives, body, pitfalls, checks, reading, ex_kind):
+def add(
+    n,
+    slug,
+    title,
+    phase,
+    days,
+    objectives,
+    body,
+    pitfalls,
+    checks,
+    reading,
+    ex_kind,
+    exercise_guide="",
+    exercise_examples="",
+):
     MODULES.append(
         dict(
             n=n,
@@ -20,9 +34,10 @@ def add(n, slug, title, phase, days, objectives, body, pitfalls, checks, reading
             checks=checks,
             reading=reading,
             ex_kind=ex_kind,
+            exercise_guide=exercise_guide,
+            exercise_examples=exercise_examples,
         )
     )
-
 
 P0 = "Phase 0 — Orientation"
 P1 = "Phase 1 — Models and packets"
@@ -41,1527 +56,897 @@ P13 = "Phase 13 — Capstones"
 
 add(
     0,
-    "orientation",
-    "Orientation: How Networks Work and How to Practice",
+    'orientation',
+    'Orientation: How Networks Work and How to Practice',
     P0,
-    "1 day",
-    [
-        "Explain clients, servers, packets, and protocols at a beginner level",
-        "Set up a safe practice lab (VM + localhost tools)",
-        "Adopt attempt → struggle → solution → rewrite",
-        "Know which tools you will use daily",
-    ],
-    """
-## Mental model
-
-A **network** moves messages between programs on machines.
-
-- **Host**: a computer with one or more network interfaces
-- **Packet/frame**: a chunk of data with headers (addresses, ports, etc.)
-- **Protocol**: agreed rules (IP, TCP, UDP, HTTP, DNS, …)
-- **Port**: number identifying an application endpoint on a host
-
-```text
-Browser  --HTTP-->  Web server
-   |                   |
-  TCP                 TCP
-   |                   |
-  IP                  IP
-   +-------- link -----+
-```
-
-## Practice lab
-
-1. Your laptop terminal (many commands work on macOS/Linux)
-2. A Linux VM for `ip`, `ss`, `nft`, systemd-resolved
-3. Optional second VM to ping/ssh between hosts
-
-## Daily toolkit (you will master these)
-
-```bash
-ping -c 3 1.1.1.1
-traceroute example.com          # or traceroute / tracert
-dig example.com +short
-curl -I https://example.com
-ss -tulpn                       # Linux; macOS: netstat -anv
-ip addr                         # Linux; macOS: ifconfig / ipconfig getifaddr en0
-```
-
-## Study method
-
-Read PDF → type every example → finish `exercises/NN-*/` (`./test.sh`) → only then open solutions → rewrite next day.
-""",
-    [
-        "Only reading without typing commands",
-        "Practicing against production systems without approval",
-        "Skipping fundamentals and jumping to cloud GUIs",
-    ],
-    [
-        "What is a port?",
-        "Name five daily networking commands",
-        "Why use a lab VM?",
-    ],
-    ["https://www.rfc-editor.org/rfc/rfc1122"],
-    "orient_hello",
+    '1 day',
+    ['Explain clients, servers, packets, and protocols at a beginner level', 'Set up a safe practice lab (VM + localhost tools)', 'Adopt attempt → struggle → solution → rewrite', 'Know which tools you will use daily'],
+    "## Why this matters\n\nIt is 02:14 and a product page is 'down'. Stakeholders ask if it is DNS, the load balancer, TLS, or the app. Without a mental model of clients, packets, ports, and protocols, you jump between dashboards. Orientation trains a safe lab habit and a daily toolkit so every later lesson maps to something you can type under pressure.\n\n## Core concepts\n\n- **Host**: machine with interfaces; **packet/frame**: chunk with headers; **protocol**: agreed rules.\n- **Port**: application endpoint on a host (TCP/UDP). Same IP can host many services via different ports.\n- **Client/server**: initiator vs listener — but roles flip (e.g. callbacks, peer protocols).\n- Practice loop: attempt → struggle → solution → rewrite. Typing beats highlighting.\n- Lab stack: laptop terminal + Linux VM (`ip`, `ss`, `nft`) + optional second VM for path tests.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nping -c 3 1.1.1.1\ndig example.com +short\ncurl -sS -o /dev/null -w '%{http_code} %{time_total}\\n' https://example.com\n```\n\nSample output:\n\n```text\n64 bytes from 1.1.1.1: icmp_seq=1 ttl=57 time=12.1 ms\n...\n93.184.216.34\n200 0.182\n```\n\n**Interpretation:** ICMP reachability, DNS A answer, and HTTP status/latency are three different layers of evidence. Collect all three before blaming 'the network'.\n\n### Example 2\n\n```bash\n# Linux\nss -tulpn | head\nip -br addr\n# macOS analogues\n# netstat -anv | head; ifconfig en0\n```\n\nSample output:\n\n```text\nudp UNCONN 0 0 0.0.0.0:53 ...\ntcp LISTEN 0 128 0.0.0.0:22 ...\neth0 UP 192.168.1.20/24\n```\n\n**Interpretation:** `ss` shows listeners (who accepts connections). `ip -br addr` shows L3 addresses on interfaces. Knowing both prevents 'port open' vs 'wrong IP' confusion.\n\n### Example 3\n\n```bash\ntraceroute -n 1.1.1.1 2>/dev/null | head -5 || traceroute 1.1.1.1 | head -5\n```\n\nSample output:\n\n```text\n1 192.168.1.1 1.2 ms\n2 10.0.0.1 8.4 ms\n3 1.1.1.1 12.0 ms\n```\n\n**Interpretation:** Path hops are clues, not proof of the fault. Firewalls may hide hops (`* * *`). Still useful to see whether you leave the LAN.\n\n\n## Mini-lab\n\n1. Create a `lab-notes.md` and paste outputs of ping, dig, curl write-out, and ss/netstat.\n2. Start a tiny listener (`python3 -m http.server 8080`) and curl `http://127.0.0.1:8080/` — prove client/server locally.\n3. List five tools you will use daily and one sentence each on when.\n4. Tomorrow: rewrite the greetings/tooling exercise from memory before reopening solutions.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Only reading PDFs | No motor memory | Type every example |\n| Practicing on prod | Blast radius / policy risk | Use VMs and approved lab nets |\n| Jumping to cloud GUIs | Skips fundamentals | Finish host toolkit first |\n| `curl` fails, blame DNS immediately | Wrong layer guess | Check dig and ping separately |\n\n## Study tip for Orientation: How Networks Work and How to Practice\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Only reading without typing commands', 'Practicing against production systems without approval', 'Skipping fundamentals and jumping to cloud GUIs'],
+    ['What is a port?', 'Name five daily networking commands', 'Why use a lab VM?'],
+    ['https://www.rfc-editor.org/rfc/rfc1122'],
+    'orient_hello',
+    exercise_guide='Implement three helpers: `greet` (friendly hello), `daily_tool_count_min` (minimum toolkit size taught: 5), and `study_loop` (the four-step practice phrase). Comments above each function should say *when* you use the idea on-call.',
+    exercise_examples='`greet Net` → `Hello, Net`. `daily_tool_count_min` → `5`. `study_loop` → `attempt-struggle-solution-rewrite`.',
 )
 
 add(
     1,
-    "osi-tcpip",
-    "OSI vs TCP/IP Models (with packet walkthrough)",
+    'osi-tcpip',
+    'OSI vs TCP/IP Models (with packet walkthrough)',
     P1,
-    "1–2 days",
-    [
-        "Map OSI layers to TCP/IP layers",
-        "Trace a request layer-by-layer",
-        "Identify which tool inspects which layer",
-        "Stop mixing L2/L3/L4 terms casually",
-    ],
-    """
-## Useful mapping
-
-| OSI idea | TCP/IP | Examples | Tools |
-|----------|--------|----------|-------|
-| L7 App | App | HTTP, DNS, SSH | curl, dig, openssl |
-| L4 Transport | TCP/UDP | ports, reliability | ss, netstat, nc |
-| L3 Network | IP | routing, ICMP | ip route, ping, traceroute |
-| L2 Data link | Ethernet/Wi-Fi | MAC, ARP | ip neigh, arp, tcpdump -e |
-| L1 Physical | wires/radio | link up/down | ip link, ethtool |
-
-## Packet walk (simplified)
-
-Opening `https://example.com`:
-
-1. DNS (app) resolves name → IP (`dig`)
-2. TCP connects to `IP:443` (handshake)
-3. TLS negotiates encryption (`openssl s_client`)
-4. HTTP request/response (`curl -v`)
-
-```bash
-# See layers in one debug session
-dig example.com +short
-ping -c 2 example.com
-curl -vI https://example.com 2>&1 | head -40
-```
-""",
-    [
-        "Calling IP addresses \"MAC addresses\"",
-        "Thinking HTTPS replaces TCP",
-        "Blaming DNS for every failure without evidence",
-    ],
-    [
-        "Which layer are ports?",
-        "Which layer are MAC addresses?",
-        "Where does TLS sit relative to TCP?",
-    ],
-    ["https://www.rfc-editor.org/rfc/rfc1122"],
-    "layer_ports",
+    '1–2 days',
+    ['Map OSI layers to TCP/IP layers', 'Trace a request layer-by-layer', 'Identify which tool inspects which layer', 'Stop mixing L2/L3/L4 terms casually'],
+    "## Why this matters\n\nA ticket says 'L7 is fine but L4 is broken'. If you casually mix OSI and TCP/IP vocabulary, you will chase HTTP dashboards while SYN packets never complete. Layer literacy tells you which tool speaks which layer — curl vs ss vs ping vs ARP — and stops wasted escalations.\n\n## Core concepts\n\n| OSI idea | TCP/IP | Examples | Tools |\n|----------|--------|----------|-------|\n| L7 App | App | HTTP, DNS, SSH | curl, dig, openssl |\n| L4 Transport | TCP/UDP | ports, sessions | ss, nc, tcpdump port |\n| L3 Network | IP | routing, ICMP | ip route, ping, traceroute |\n| L2 Data link | Link | MAC, ARP, Ethernet | ip neigh, tcpdump -e |\n| L1 Physical | wires/radio | link up/down | ip link, ethtool |\n\nHTTPS does **not** replace TCP — TLS rides on a TCP (or QUIC/UDP) session. Ports are L4 identifiers; MACs are L2.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\ndig example.com +short\nping -c 2 example.com\ncurl -sS -o /dev/null -w '%{http_code}\\n' https://example.com\n```\n\nSample output:\n\n```text\n93.184.216.34\n64 bytes from ... time=20 ms\n200\n```\n\n**Interpretation:** DNS (app naming) → ICMP (L3 reachability) → HTTPS (app over TLS/TCP). Failure at each step points to a different layer.\n\n### Example 2\n\n```bash\nss -tlnp | head -5\n# macOS: netstat -an | grep LISTEN | head\n```\n\nSample output:\n\n```text\nLISTEN 0 128 0.0.0.0:443 ...\n```\n\n**Interpretation:** Listening sockets prove an L4 endpoint exists locally. If ss shows nothing on 443 but curl to remote works, the problem is elsewhere.\n\n### Example 3\n\n```bash\ncurl -vI https://example.com 2>&1 | head -35\n```\n\nSample output:\n\n```text\n* Connected to example.com (93.184.216.34) port 443\n* SSL connection using TLSv1.3\n< HTTP/2 200\n```\n\n**Interpretation:** Verbose curl reveals TCP connect then TLS then HTTP — a live layer walkthrough.\n\n\n## Mini-lab\n\n1. Draw the path of `https://example.com` and label each step with a tool.\n2. For a local `python3 -m http.server 8000`, identify L4 port and L7 protocol.\n3. Answer: which layer are ports? MACs? TLS relative to TCP?\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Calling IPs 'MAC addresses' | L2/L3 confusion | ip neigh vs ip addr |\n| Thinking HTTPS replaces TCP | Missing transport | curl -v connect line |\n| Blaming DNS for TCP RST | Wrong layer | dig OK + ss/tcpdump |\n| Tool soup without layer map | No hypothesis | Pick one layer's tool |\n\n## Study tip for OSI vs TCP/IP Models (with packet walkthrough)\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Calling IP addresses "MAC addresses"', 'Thinking HTTPS replaces TCP', 'Blaming DNS for every failure without evidence'],
+    ['Which layer are ports?', 'Which layer are MAC addresses?', 'Where does TLS sit relative to TCP?'],
+    ['https://www.rfc-editor.org/rfc/rfc1122'],
+    'layer_ports',
+    exercise_guide='Implement `layer_for_ports`, `layer_for_mac`, `layer_for_http`, and `tls_rides_on` returning the layer labels taught in the mapping table (L4, L2, L7, TCP).',
+    exercise_examples='`layer_for_ports` → `L4`; `layer_for_mac` → `L2`; `layer_for_http` → `L7`; `tls_rides_on` → `TCP`.',
 )
 
 add(
     2,
-    "encapsulation",
-    "Encapsulation, Headers, and MTU",
+    'encapsulation',
+    'Encapsulation, Headers, and MTU',
     P1,
-    "1–2 days",
-    [
-        "Explain encapsulation/decapsulation",
-        "Define MTU and fragmentation issues",
-        "Use ping to probe path MTU ideas",
-        "Recognize common header sizes intuitively",
-    ],
-    """
-## Encapsulation
-
-Each layer wraps the payload from above:
-
-```text
-[Eth][IP][TCP][HTTP data........]
-```
-
-## MTU
-
-Maximum payload size on a link (Ethernet often 1500). Too-large packets may fragment or drop (especially with VPN overhead).
-
-```bash
-# Linux: show interface MTU
-ip link show
-# Probe large ping (may need root / may be blocked)
-ping -c 2 -M do -s 1472 1.1.1.1    # Linux DF bit
-ping -c 2 -D -s 1472 1.1.1.1       # macOS-style
-```
-
-## tcpdump glimpse
-
-```bash
-sudo tcpdump -ni any -c 5 icmp
-sudo tcpdump -ni eth0 -c 5 host example.com and port 443
-```
-""",
-    [
-        "Ignoring MTU after adding VPN/overlays",
-        "Blackhole path MTU (DF set, ICMP blocked)",
-        "Capturing on the wrong interface",
-    ],
-    [
-        "What does MTU mean?",
-        "Why do VPNs lower effective MTU?",
-        "Name a capture tool",
-    ],
-    ["https://www.rfc-editor.org/rfc/rfc1191"],
-    "mtu_quiz",
+    '1–2 days',
+    ['Explain encapsulation/decapsulation', 'Define MTU and fragmentation issues', 'Use ping to probe path MTU ideas', 'Recognize common header sizes intuitively'],
+    '## Why this matters\n\nAfter enabling a VPN, large uploads hang while small pings work. That is classic MTU/encapsulation pain: each tunnel header steals bytes from the payload budget. Understanding encapsulation and path MTU keeps you from blaming the application for silent blackholes.\n\n## Core concepts\n\nEncapsulation wraps upper-layer payloads:\n\n```text\n[Eth][IP][TCP][HTTP...]\n```\n\n- **MTU**: max payload on a link (Ethernet often **1500**).\n- VPN/overlay headers reduce effective MTU (e.g. 1420).\n- DF (don\'t fragment) + blocked ICMP "Packet Too Big" → blackhole.\n- Rough sizes: Ethernet header 14 (+4 VLAN), IPv4 ~20, TCP ~20 — intuition for MSS clamping.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nip link show | sed -n \'1,12p\'\n# look for mtu 1500 / 9000 / 1420\n```\n\nSample output:\n\n```text\n2: eth0: <BROADCAST,MULTICAST,UP> mtu 1500 ...\n3: wg0: ... mtu 1420 ...\n```\n\n**Interpretation:** Interface MTU is local. Path MTU can be lower than any single hop you admin.\n\n### Example 2\n\n```bash\nping -c 2 -M do -s 1472 1.1.1.1 2>&1 | head -8 || ping -c 2 -D -s 1472 1.1.1.1 2>&1 | head -8\n```\n\nSample output:\n\n```text\n1472 + 28 = 1500 on IPv4; success means path accepted DF full-size frames (or middlebox lies).\n```\n\n**Interpretation:** 1472 data bytes + 20 IPv4 + 8 ICMP ≈ 1500. Failure after VPN strongly suggests overhead.\n\n### Example 3\n\n```bash\nsudo tcpdump -ni any -c 5 icmp\n```\n\nSample output:\n\n```text\nIP a > b: ICMP echo request\nIP b > a: ICMP echo reply\n```\n\n**Interpretation:** Confirm ICMP is not blocked if you rely on PMTUD. Many \'mystery hangs\' are PTB filtered.\n\n\n## Mini-lab\n\n1. Record MTU on eth0 and any tunnel interface.\n2. Run DF ping at 1472 and at 1400; note difference with VPN on/off.\n3. Capture 5 ICMP packets while pinging; identify request/reply.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Large transfers hang, small OK | MTU/PMTUD blackhole | DF ping + lower MSS |\n| VPN works for SSH not HTTPS uploads | Effective MTU | Check tunnel MTU |\n| No ICMP PTB | Firewall too strict | Allow PTB or clamp MSS |\n| Capturing wrong iface | Missed packets | tcpdump -ni any briefly |\n\n## Study tip for Encapsulation, Headers, and MTU\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n',
+    ['Ignoring MTU after adding VPN/overlays', 'Blackhole path MTU (DF set, ICMP blocked)', 'Capturing on the wrong interface'],
+    ['What does MTU mean?', 'Why do VPNs lower effective MTU?', 'Name a capture tool'],
+    ['https://www.rfc-editor.org/rfc/rfc1191'],
+    'mtu_quiz',
+    exercise_guide='Implement `ethernet_typical_mtu`, `vpn_overhead_effect` (returns `lowers-MTU`), and `df_ping_purpose` (`probe-path-MTU`).',
+    exercise_examples='`ethernet_typical_mtu` → `1500`; `vpn_overhead_effect` → `lowers-MTU`; `df_ping_purpose` → `probe-path-MTU`.',
 )
 
 add(
     3,
-    "ethernet-mac-arp",
-    "Ethernet, MAC Addresses, and ARP",
+    'ethernet-mac-arp',
+    'Ethernet, MAC Addresses, and ARP',
     P7,
-    "1–2 days",
-    [
-        "Read MAC addresses and ARP tables",
-        "Explain ARP purpose on a LAN",
-        "Detect basic ARP issues",
-        "Use neighbor tables on modern Linux",
-    ],
-    """
-## Commands
-
-```bash
-# Linux
-ip link show
-ip neigh show
-ip -s link
-# older
-arp -n
-
-# macOS
-ifconfig en0
-arp -an
-```
-
-ARP maps **IP → MAC** on the local subnet so frames can be delivered.
-
-```bash
-ping -c 1 192.168.1.1
-ip neigh show          # entry should appear as REACHABLE/DELAY/...
-```
-
-## Useful tcpdump for ARP
-
-```bash
-sudo tcpdump -ni eth0 arp
-```
-""",
-    [
-        "Expecting ARP to work across routers (it doesn't)",
-        "Duplicate IPs causing flapping ARP",
-        "Hardcoding MAC allowlists without ops process",
-    ],
-    [
-        "ARP maps what to what?",
-        "Does ARP cross routers?",
-        "Command to show neighbors on Linux?",
-    ],
-    ["https://www.rfc-editor.org/rfc/rfc826"],
-    "arp_map",
+    '1–2 days',
+    ['Read MAC addresses and ARP tables', 'Explain ARP purpose on a LAN', 'Detect basic ARP issues', 'Use neighbor tables on modern Linux'],
+    "## Why this matters\n\nTwo VMs on the same subnet cannot talk, yet both ping 8.8.8.8. Often the gateway works (so 'internet is fine') while ARP/neighbor resolution between peers is broken — duplicate IP, wrong VLAN, or isolated port. Ethernet/MAC/ARP literacy is how you prove L2 adjacency.\n\n## Core concepts\n\n- Ethernet delivers frames using **MAC** addresses on a broadcast domain.\n- **ARP** (IPv4) maps **IP → MAC** on the local subnet only — it does **not** cross routers.\n- Linux `ip neigh` is the modern neighbor table; `arp -n` still appears in tribal knowledge.\n- Symptoms of duplicate IP: flapping MAC for one IP, intermittent reachability.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nip -br link; ip neigh show | head\n# macOS: ifconfig en0; arp -an | head\n```\n\nSample output:\n\n```text\neth0 UP ...\n192.168.1.1 dev eth0 lladdr aa:bb:cc:dd:ee:ff REACHABLE\n```\n\n**Interpretation:** REACHABLE to the gateway MAC means L2 to default router is OK.\n\n### Example 2\n\n```bash\nping -c 1 192.168.1.1; ip neigh show | head\n```\n\nSample output:\n\n```text\n64 bytes from 192.168.1.1\n192.168.1.1 ... REACHABLE\n```\n\n**Interpretation:** Traffic populates/ refreshes neighbor entries — empty table after idle is normal.\n\n### Example 3\n\n```bash\nsudo tcpdump -ni eth0 -c 6 arp\n```\n\nSample output:\n\n```text\nRequest who-has 192.168.1.50 tell 192.168.1.20\nReply 192.168.1.50 is-at aa:bb:...\n```\n\n**Interpretation:** Seeing requests without replies isolates 'who isn't answering ARP'.\n\n\n## Mini-lab\n\n1. Ping gateway; confirm neigh entry.\n2. Ping a same-subnet peer; capture ARP.\n3. Explain why ARP cannot resolve an IP on another subnet.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| ARP across routers expected | L2 boundary misunderstanding | Check same subnet/mask |\n| Flapping connectivity | Duplicate IP | Watch neigh MAC changes |\n| Wrong VLAN | No ARP replies | Confirm switchport VLAN |\n| Stale FAIL neigh | Old negative cache | ip neigh flush / retry |\n\n## Study tip for Ethernet, MAC Addresses, and ARP\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ["Expecting ARP to work across routers (it doesn't)", 'Duplicate IPs causing flapping ARP', 'Hardcoding MAC allowlists without ops process'],
+    ['ARP maps what to what?', 'Does ARP cross routers?', 'Command to show neighbors on Linux?'],
+    ['https://www.rfc-editor.org/rfc/rfc826'],
+    'arp_map',
+    exercise_guide='Implement `arp_maps` (`IP-to-MAC`), `arp_crosses_routers` (`no`), and `linux_neigh_cmd` (`ip neigh`).',
+    exercise_examples='`arp_maps` → `IP-to-MAC`; `arp_crosses_routers` → `no`; `linux_neigh_cmd` → `ip neigh`.',
 )
 
 add(
     4,
-    "ipv4-basics",
-    "IPv4 Basics: Addresses, Classes Myth, Private Ranges",
+    'ipv4-basics',
+    'IPv4 Basics: Addresses, Classes Myth, Private Ranges',
     P2,
-    "1–2 days",
-    [
-        "Read IPv4 addresses and dotted decimal",
-        "Know RFC1918 private ranges",
-        "Explain public vs private vs loopback",
-        "Use commands to show addresses on a host",
-    ],
-    """
-## Special addresses
-
-| Range | Meaning |
-|-------|---------|
-| 127.0.0.0/8 | loopback |
-| 10.0.0.0/8 | private |
-| 172.16.0.0/12 | private |
-| 192.168.0.0/16 | private |
-| 169.254.0.0/16 | link-local (APIPA) |
-| 0.0.0.0/0 | default route |
-
-```bash
-# Linux
-ip -4 addr show
-ip route show
-# macOS
-ipconfig getifaddr en0
-route -n get default
-# both
-ping -c 2 127.0.0.1
-```
-
-## Check public IP (from host)
-
-```bash
-curl -4 ifconfig.me
-curl -4 https://api.ipify.org
-dig +short myip.opendns.com @resolver1.opendns.com
-```
-""",
-    [
-        "Assuming classful addressing still rules the internet",
-        "Using public IPs on lab LANs carelessly",
-        "Confusing link-local with routable",
-    ],
-    [
-        "Name three private ranges",
-        "What is 127.0.0.1?",
-        "How print IPv4 addresses on Linux?",
-    ],
-    ["https://www.rfc-editor.org/rfc/rfc1918"],
-    "ipv4_private",
+    '1–2 days',
+    ['Read IPv4 addresses and dotted decimal', 'Know RFC1918 private ranges', 'Explain public vs private vs loopback', 'Use commands to show addresses on a host'],
+    "## Why this matters\n\nA host can reach the internet but a teammate cannot SSH to it using what they think is a 'public' address — they pasted a 10.x address into a ticket. Private ranges, public space, and the 'classes are dead, CIDR won' story stop that class of confusion.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Read IPv4 addresses and dotted decimal\n- Know RFC1918 private ranges\n- Explain public vs private vs loopback\n- Use commands to show addresses on a host\n\nMental model for `04-ipv4-basics` (exercise kind `ipv4_private`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nip -br addr; ip route; ip route get 1.1.1.1\n```\n\nSample output:\n\n```text\neth0 UP 192.168.1.20/24\ndefault via 192.168.1.1 dev eth0\n1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.20\n```\n\n**Interpretation:** `ip route get` shows the chosen route, egress device, and preferred source — gold for 'why did it leave this NIC?' questions.\n\n### Example 2\n\n```bash\nping -c 3 1.1.1.1\nss -tulpn | head\n# macOS: netstat -anv | head\n```\n\nSample output:\n\n```text\n3 packets transmitted, 3 received\nudp ... :53\ntcp LISTEN ... :22\n```\n\n**Interpretation:** ICMP OK proves basic L3; ss proves local listeners. Combine with ARP/neigh when LAN peers fail.\n\n### Example 3\n\n```bash\nip neigh show | head\nping -c 1 $(ip route | awk '/default/ {print $3; exit}')\n```\n\nSample output:\n\n```text\n192.168.1.1 dev eth0 lladdr ... REACHABLE\n64 bytes from gateway\n```\n\n**Interpretation:** Neighbor/ARP state validates L2 adjacency to the gateway before you blame the wider internet.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **IPv4 Basics: Addresses, Classes Myth, Private Ranges** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Assuming classful addressing still ru... | See common mistakes | Re-run lesson commands |\n| Using public IPs on lab LANs carelessly | See common mistakes | Re-run lesson commands |\n| Confusing link-local with routable | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for IPv4 Basics: Addresses, Classes Myth, Private Ranges\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Assuming classful addressing still rules the internet', 'Using public IPs on lab LANs carelessly', 'Confusing link-local with routable'],
+    ['Name three private ranges', 'What is 127.0.0.1?', 'How print IPv4 addresses on Linux?'],
+    ['https://www.rfc-editor.org/rfc/rfc1918'],
+    'ipv4_private',
+    exercise_guide='Edit `exercise.sh` and implement `is_private`, `loopback_cidr`, `link_local_prefix`. Each function is a tiny retrieval drill for **IPv4 Basics: Addresses, Classes Myth, Private Ranges** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 4 assertions pass.',
+    exercise_examples='Expected: `is_private 10.0.0.1` → `yes`; `is_private 8.8.8.8` → `no`; `loopback_cidr` → `127.0.0.0/8`; `link_local_prefix` → `169.254`.',
 )
 
 add(
     5,
-    "subnetting",
-    "Subnetting and CIDR (with practice)",
+    'subnetting',
+    'Subnetting and CIDR (with practice)',
     P2,
-    "2–3 days",
-    [
-        "Convert prefix lengths to masks",
-        "Compute network/broadcast/usable hosts",
-        "Choose subnets for labs",
-        "Use `ipcalc`/`sipcalc` or manual method",
-    ],
-    """
-## CIDR quick facts
-
-`192.168.10.0/24` → mask `255.255.255.0` → 256 addresses → 254 usable (typical).
-
-Host bits = 32 - prefix. Usable ≈ 2^hostbits − 2 (except some special cases).
-
-```bash
-# If installed
-ipcalc 192.168.10.0/24
-sipcalc 10.0.0.0/12
-
-# Python one-liner helper (lab)
-python3 - <<'PY'
-import ipaddress
-n=ipaddress.ip_network('192.168.10.0/24')
-print(n.network_address, n.broadcast_address, n.num_addresses)
-PY
-```
-
-## Common prefixes
-
-| Prefix | Hosts (approx usable) | Typical use |
-|--------|-----------------------|-------------|
-| /32 | 1 | single host route |
-| /30 | 2 | point-to-point |
-| /24 | 254 | small LAN |
-| /16 | ~65k | large private |
-| /0 | default | everything |
-""",
-    [
-        "Off-by-one in usable host counts",
-        "Overlapping subnets in VPCs",
-        "Using /24 everywhere without design",
-    ],
-    [
-        "How many host bits in /26?",
-        "What does /32 mean?",
-        "Why avoid overlapping CIDRs?",
-    ],
-    ["https://www.rfc-editor.org/rfc/rfc4632"],
-    "cidr_hosts",
+    '2–3 days',
+    ['Convert prefix lengths to masks', 'Compute network/broadcast/usable hosts', 'Choose subnets for labs', 'Use `ipcalc`/`sipcalc` or manual method'],
+    "## Why this matters\n\nSecurity asks for a /27 for a new service; capacity planning assumed a /24. Getting host counts, network/broadcast, and usable ranges wrong either wastes address space or causes painful renumbering later.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Convert prefix lengths to masks\n- Compute network/broadcast/usable hosts\n- Choose subnets for labs\n- Use `ipcalc`/`sipcalc` or manual method\n\nMental model for `05-subnetting` (exercise kind `cidr_hosts`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nip -br addr; ip route; ip route get 1.1.1.1\n```\n\nSample output:\n\n```text\neth0 UP 192.168.1.20/24\ndefault via 192.168.1.1 dev eth0\n1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.20\n```\n\n**Interpretation:** `ip route get` shows the chosen route, egress device, and preferred source — gold for 'why did it leave this NIC?' questions.\n\n### Example 2\n\n```bash\nping -c 3 1.1.1.1\nss -tulpn | head\n# macOS: netstat -anv | head\n```\n\nSample output:\n\n```text\n3 packets transmitted, 3 received\nudp ... :53\ntcp LISTEN ... :22\n```\n\n**Interpretation:** ICMP OK proves basic L3; ss proves local listeners. Combine with ARP/neigh when LAN peers fail.\n\n### Example 3\n\n```bash\nip neigh show | head\nping -c 1 $(ip route | awk '/default/ {print $3; exit}')\n```\n\nSample output:\n\n```text\n192.168.1.1 dev eth0 lladdr ... REACHABLE\n64 bytes from gateway\n```\n\n**Interpretation:** Neighbor/ARP state validates L2 adjacency to the gateway before you blame the wider internet.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **Subnetting and CIDR (with practice)** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Off-by-one in usable host counts | See common mistakes | Re-run lesson commands |\n| Overlapping subnets in VPCs | See common mistakes | Re-run lesson commands |\n| Using /24 everywhere without design | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for Subnetting and CIDR (with practice)\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Off-by-one in usable host counts', 'Overlapping subnets in VPCs', 'Using /24 everywhere without design'],
+    ['How many host bits in /26?', 'What does /32 mean?', 'Why avoid overlapping CIDRs?'],
+    ['https://www.rfc-editor.org/rfc/rfc4632'],
+    'cidr_hosts',
+    exercise_guide='Edit `exercise.sh` and implement `host_bits`, `usable_hosts_24`, `longer_prefix_means`. Each function is a tiny retrieval drill for **Subnetting and CIDR (with practice)** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 4 assertions pass.',
+    exercise_examples='Expected: `host_bits 24` → `8`; `host_bits 26` → `6`; `usable_hosts_24` → `254`; `longer_prefix_means` → `smaller`.',
 )
 
 add(
     6,
-    "ipv6-basics",
-    "IPv6 Basics and Dual-Stack Commands",
+    'ipv6-basics',
+    'IPv6 Basics and Dual-Stack Commands',
     P2,
-    "1–2 days",
-    [
-        "Read IPv6 addresses and `::` compression",
-        "Know link-local `fe80::/10`",
-        "Query AAAA records",
-        "Test connectivity with ping6/curl -6",
-    ],
-    """
-```bash
-# Addresses
-ip -6 addr show                 # Linux
-ifconfig en0 | grep inet6       # macOS
-
-# DNS AAAA
-dig example.com AAAA +short
-dig -t AAAA example.com +short
-
-# Connectivity
-ping6 -c 2 2606:4700:4700::1111
-curl -6 -I https://example.com
-curl -6 https://api64.ipify.org
-
-# Prefer v4 or v6 in curl
-curl -4 -I https://example.com
-curl -6 -I https://example.com
-```
-
-Link-local addresses need a scope/interface: `fe80::1%eth0`.
-""",
-    [
-        "Forgetting `%iface` on link-local",
-        "Disabling IPv6 and breaking dual-stack apps randomly",
-        "Assuming no AAAA means host is down",
-    ],
-    [
-        "What starts with fe80::?",
-        "How query AAAA with dig?",
-        "curl flag to force IPv6?",
-    ],
-    ["https://www.rfc-editor.org/rfc/rfc8200"],
-    "ipv6_aaaa",
+    '1–2 days',
+    ['Read IPv6 addresses and `::` compression', 'Know link-local `fe80::/10`', 'Query AAAA records', 'Test connectivity with ping6/curl -6'],
+    "## Why this matters\n\nHalf your clients prefer AAAA and half prefer A. Dual-stack misconfig shows up as 'works on my machine' — IPv6-only path broken, Happy Eyeballs hiding latency, or forgotten AAAA firewall holes.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Read IPv6 addresses and `::` compression\n- Know link-local `fe80::/10`\n- Query AAAA records\n- Test connectivity with ping6/curl -6\n\nMental model for `06-ipv6-basics` (exercise kind `ipv6_aaaa`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nip -br addr; ip route; ip route get 1.1.1.1\n```\n\nSample output:\n\n```text\neth0 UP 192.168.1.20/24\ndefault via 192.168.1.1 dev eth0\n1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.20\n```\n\n**Interpretation:** `ip route get` shows the chosen route, egress device, and preferred source — gold for 'why did it leave this NIC?' questions.\n\n### Example 2\n\n```bash\nping -c 3 1.1.1.1\nss -tulpn | head\n# macOS: netstat -anv | head\n```\n\nSample output:\n\n```text\n3 packets transmitted, 3 received\nudp ... :53\ntcp LISTEN ... :22\n```\n\n**Interpretation:** ICMP OK proves basic L3; ss proves local listeners. Combine with ARP/neigh when LAN peers fail.\n\n### Example 3\n\n```bash\nip neigh show | head\nping -c 1 $(ip route | awk '/default/ {print $3; exit}')\n```\n\nSample output:\n\n```text\n192.168.1.1 dev eth0 lladdr ... REACHABLE\n64 bytes from gateway\n```\n\n**Interpretation:** Neighbor/ARP state validates L2 adjacency to the gateway before you blame the wider internet.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **IPv6 Basics and Dual-Stack Commands** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Forgetting `%iface` on link-local | See common mistakes | Re-run lesson commands |\n| Disabling IPv6 and breaking dual-stac... | See common mistakes | Re-run lesson commands |\n| Assuming no AAAA means host is down | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for IPv6 Basics and Dual-Stack Commands\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Forgetting `%iface` on link-local', 'Disabling IPv6 and breaking dual-stack apps randomly', 'Assuming no AAAA means host is down'],
+    ['What starts with fe80::?', 'How query AAAA with dig?', 'curl flag to force IPv6?'],
+    ['https://www.rfc-editor.org/rfc/rfc8200'],
+    'ipv6_aaaa',
+    exercise_guide='Edit `exercise.sh` and implement `dig_aaaa_type`, `ipv6_loopback`, `dig_brief_flag`. Each function is a tiny retrieval drill for **IPv6 Basics and Dual-Stack Commands** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `dig_aaaa_type` → `AAAA`; `ipv6_loopback` → `::1`; `dig_brief_flag` → `+short`.',
 )
 
 add(
     7,
-    "ip-command",
-    "The ip Command Deep Dive (addr, link, route)",
+    'ip-command',
+    'The ip Command Deep Dive (addr, link, route)',
     P3,
-    "2 days",
-    [
-        "Use ip addr/link/route fluently",
-        "Bring interfaces up/down (lab)",
-        "Add/delete routes temporarily",
-        "Prefer ip over deprecated ifconfig on Linux",
-    ],
-    """
-## Essential `ip` examples (Linux)
-
-```bash
-ip addr show
-ip -br addr                         # brief
-ip link show
-ip link set eth0 up
-ip link set eth0 down
-
-ip route show
-ip route get 1.1.1.1                # which path would kernel use?
-ip route add 10.50.0.0/16 via 10.0.0.1
-ip route del 10.50.0.0/16
-
-ip -s link show eth0                # counters RX/TX errors
-ip monitor all                      # watch changes live
-```
-
-## macOS cousins
-
-```bash
-ifconfig
-route -n get default
-networksetup -listallhardwareports
-```
-""",
-    [
-        "Making persistent mistakes thinking `ip route add` survives reboot (needs netplan/NetworkManager/systemd-networkd)",
-        "typos adding routes that blackhole traffic",
-        "changing production without console access",
-    ],
-    [
-        "Command to show routes?",
-        "What does `ip route get` do?",
-        "Brief address listing flag?",
-    ],
-    ["https://man7.org/linux/man-pages/man8/ip.8.html"],
-    "ip_route_get",
+    '2 days',
+    ['Use ip addr/link/route fluently', 'Bring interfaces up/down (lab)', 'Add/delete routes temporarily', 'Prefer ip over deprecated ifconfig on Linux'],
+    "## Why this matters\n\nSomeone added a secondary IP and 'the service is bound wrong'. `ip addr` / `ip route` / `ip route get` are how you prove which address and which egress path the kernel actually chooses.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Use ip addr/link/route fluently\n- Bring interfaces up/down (lab)\n- Add/delete routes temporarily\n- Prefer ip over deprecated ifconfig on Linux\n\nMental model for `07-ip-command` (exercise kind `ip_route_get`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nip -br addr; ip route; ip route get 1.1.1.1\n```\n\nSample output:\n\n```text\neth0 UP 192.168.1.20/24\ndefault via 192.168.1.1 dev eth0\n1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.20\n```\n\n**Interpretation:** `ip route get` shows the chosen route, egress device, and preferred source — gold for 'why did it leave this NIC?' questions.\n\n### Example 2\n\n```bash\nping -c 3 1.1.1.1\nss -tulpn | head\n# macOS: netstat -anv | head\n```\n\nSample output:\n\n```text\n3 packets transmitted, 3 received\nudp ... :53\ntcp LISTEN ... :22\n```\n\n**Interpretation:** ICMP OK proves basic L3; ss proves local listeners. Combine with ARP/neigh when LAN peers fail.\n\n### Example 3\n\n```bash\nip neigh show | head\nping -c 1 $(ip route | awk '/default/ {print $3; exit}')\n```\n\nSample output:\n\n```text\n192.168.1.1 dev eth0 lladdr ... REACHABLE\n64 bytes from gateway\n```\n\n**Interpretation:** Neighbor/ARP state validates L2 adjacency to the gateway before you blame the wider internet.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **The ip Command Deep Dive (addr, link, route)** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Making persistent mistakes thinking `... | See common mistakes | Re-run lesson commands |\n| typos adding routes that blackhole tr... | See common mistakes | Re-run lesson commands |\n| changing production without console a... | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for The ip Command Deep Dive (addr, link, route)\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Making persistent mistakes thinking `ip route add` survives reboot (needs netplan/NetworkManager/systemd-networkd)', 'typos adding routes that blackhole traffic', 'changing production without console access'],
+    ['Command to show routes?', 'What does `ip route get` do?', 'Brief address listing flag?'],
+    ['https://man7.org/linux/man-pages/man8/ip.8.html'],
+    'ip_route_get',
+    exercise_guide='Edit `exercise.sh` and implement `cmd_route_get`, `cmd_addr_brief`, `cmd_link_show`. Each function is a tiny retrieval drill for **The ip Command Deep Dive (addr, link, route)** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `cmd_route_get` → `ip route get`; `cmd_addr_brief` → `ip -br addr`; `cmd_link_show` → `ip link`.',
 )
 
 add(
     8,
-    "ping-traceroute",
-    "ping, traceroute/mtr, and Path Diagnosis",
+    'ping-traceroute',
+    'ping, traceroute/mtr, and Path Diagnosis',
     P3,
-    "1–2 days",
-    [
-        "Use ping meaningfully (and know its limits)",
-        "Read traceroute hops",
-        "Use mtr for combined view",
-        "Distinguish loss at hop vs destination",
-    ],
-    """
-```bash
-ping -c 5 1.1.1.1
-ping -c 5 -W 1 example.com          # timeout per probe (Linux)
-ping -c 5 -t 1 example.com          # macOS timeout seconds
-
-traceroute example.com
-traceroute -n example.com           # numeric, no DNS delay
-# Linux often:
-tracepath example.com
-
-# Best interactive tool if installed:
-mtr -rwzc 50 example.com
-mtr -6 example.com
-```
-
-**ICMP may be rate-limited or blocked.** Failed ping ≠ host down. Correlate with TCP checks (`curl`, `nc`).
-
-```bash
-# TCP-aware path tools (if installed)
-tcptraceroute example.com 443
-```
-""",
-    [
-        "Declaring outage from a single ping fail",
-        "Misreading traceroute stars as always \"down\"",
-        "No DNS-less (`-n`) when DNS is broken",
-    ],
-    [
-        "Why ping can lie?",
-        "What does mtr combine?",
-        "Why traceroute -n?",
-    ],
-    ["https://www.rfc-editor.org/rfc/rfc792"],
-    "ping_count",
+    '1–2 days',
+    ['Use ping meaningfully (and know its limits)', 'Read traceroute hops', 'Use mtr for combined view', 'Distinguish loss at hop vs destination'],
+    "## Why this matters\n\nUsers say 'the network is slow'. Ping loss, traceroute stars, and mtr asymmetry tell different stories — path diagnosis separates LAN, ISP, and far-end issues before you open a cloud ticket.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Use ping meaningfully (and know its limits)\n- Read traceroute hops\n- Use mtr for combined view\n- Distinguish loss at hop vs destination\n\nMental model for `08-ping-traceroute` (exercise kind `ping_count`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nip -br addr; ip route; ip route get 1.1.1.1\n```\n\nSample output:\n\n```text\neth0 UP 192.168.1.20/24\ndefault via 192.168.1.1 dev eth0\n1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.20\n```\n\n**Interpretation:** `ip route get` shows the chosen route, egress device, and preferred source — gold for 'why did it leave this NIC?' questions.\n\n### Example 2\n\n```bash\nping -c 3 1.1.1.1\nss -tulpn | head\n# macOS: netstat -anv | head\n```\n\nSample output:\n\n```text\n3 packets transmitted, 3 received\nudp ... :53\ntcp LISTEN ... :22\n```\n\n**Interpretation:** ICMP OK proves basic L3; ss proves local listeners. Combine with ARP/neigh when LAN peers fail.\n\n### Example 3\n\n```bash\nip neigh show | head\nping -c 1 $(ip route | awk '/default/ {print $3; exit}')\n```\n\nSample output:\n\n```text\n192.168.1.1 dev eth0 lladdr ... REACHABLE\n64 bytes from gateway\n```\n\n**Interpretation:** Neighbor/ARP state validates L2 adjacency to the gateway before you blame the wider internet.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **ping, traceroute/mtr, and Path Diagnosis** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Declaring outage from a single ping f... | See common mistakes | Re-run lesson commands |\n| Misreading traceroute stars as always... | See common mistakes | Re-run lesson commands |\n| No DNS-less (`-n`) when DNS is broken | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for ping, traceroute/mtr, and Path Diagnosis\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Declaring outage from a single ping fail', 'Misreading traceroute stars as always "down"', 'No DNS-less (`-n`) when DNS is broken'],
+    ['Why ping can lie?', 'What does mtr combine?', 'Why traceroute -n?'],
+    ['https://www.rfc-editor.org/rfc/rfc792'],
+    'ping_count',
+    exercise_guide='Edit `exercise.sh` and implement `ping_three`, `path_hop_tool`, `loss_path_tool`. Each function is a tiny retrieval drill for **ping, traceroute/mtr, and Path Diagnosis** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `ping_three` → `ping -c 3`; `path_hop_tool` → `traceroute`; `loss_path_tool` → `mtr`.',
 )
 
 add(
     9,
-    "ss-netstat-lsof",
-    "ss, netstat, and lsof: See What Is Listening",
+    'ss-netstat-lsof',
+    'ss, netstat, and lsof: See What Is Listening',
     P3,
-    "1–2 days",
-    [
-        "List listening sockets and established connections",
-        "Map ports to processes",
-        "Use lsof for file/socket detectives",
-        "Spot TIME_WAIT / CLOSE_WAIT patterns",
-    ],
-    """
-```bash
-# Linux preferred
-ss -tulpn
-ss -s
-ss -tan state established
-ss -tan 'sport = :443'
-ss -tanp | head
-
-# macOS / older
-netstat -anv
-netstat -an | grep LISTEN
-
-# Who owns a port?
-sudo lsof -iTCP:22 -sTCP:LISTEN
-sudo lsof -i :5432
-sudo fuser -v 80/tcp                 # Linux psmisc
-```
-
-## Reading states
-
-- `LISTEN` — server waiting
-- `ESTAB`/`ESTABLISHED` — connected
-- `TIME-WAIT` — normal after close (high volume can be OK)
-- `CLOSE-WAIT` — often app not closing sockets (bug)
-""",
-    [
-        "Killing TIME_WAIT thinking it's a leak",
-        "Forgetting sudo for process names in ss -p",
-        "Ignoring IPv6 listeners (`ss -tulpn` shows both)",
-    ],
-    [
-        "ss flags for TCP/UDP listen + process?",
-        "lsof command for port 22?",
-        "CLOSE-WAIT often means?",
-    ],
-    ["https://man7.org/linux/man-pages/man8/ss.8.html"],
-    "ss_flags",
+    '1–2 days',
+    ['List listening sockets and established connections', 'Map ports to processes', 'Use lsof for file/socket detectives', 'Spot TIME_WAIT / CLOSE_WAIT patterns'],
+    "## Why this matters\n\nDeploy claims the app listens on 8080; curl from another host times out. `ss`/`lsof` show whether anything listens, on which address (127.0.0.1 vs 0.0.0.0), and which process owns the socket.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- List listening sockets and established connections\n- Map ports to processes\n- Use lsof for file/socket detectives\n- Spot TIME_WAIT / CLOSE_WAIT patterns\n\nMental model for `09-ss-netstat-lsof` (exercise kind `ss_flags`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nip -br addr; ip route; ip route get 1.1.1.1\n```\n\nSample output:\n\n```text\neth0 UP 192.168.1.20/24\ndefault via 192.168.1.1 dev eth0\n1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.20\n```\n\n**Interpretation:** `ip route get` shows the chosen route, egress device, and preferred source — gold for 'why did it leave this NIC?' questions.\n\n### Example 2\n\n```bash\nping -c 3 1.1.1.1\nss -tulpn | head\n# macOS: netstat -anv | head\n```\n\nSample output:\n\n```text\n3 packets transmitted, 3 received\nudp ... :53\ntcp LISTEN ... :22\n```\n\n**Interpretation:** ICMP OK proves basic L3; ss proves local listeners. Combine with ARP/neigh when LAN peers fail.\n\n### Example 3\n\n```bash\nip neigh show | head\nping -c 1 $(ip route | awk '/default/ {print $3; exit}')\n```\n\nSample output:\n\n```text\n192.168.1.1 dev eth0 lladdr ... REACHABLE\n64 bytes from gateway\n```\n\n**Interpretation:** Neighbor/ARP state validates L2 adjacency to the gateway before you blame the wider internet.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **ss, netstat, and lsof: See What Is Listening** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Killing TIME_WAIT thinking it's a leak | See common mistakes | Re-run lesson commands |\n| Forgetting sudo for process names in ... | See common mistakes | Re-run lesson commands |\n| Ignoring IPv6 listeners (`ss -tulpn` ... | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for ss, netstat, and lsof: See What Is Listening\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ["Killing TIME_WAIT thinking it's a leak", 'Forgetting sudo for process names in ss -p', 'Ignoring IPv6 listeners (`ss -tulpn` shows both)'],
+    ['ss flags for TCP/UDP listen + process?', 'lsof command for port 22?', 'CLOSE-WAIT often means?'],
+    ['https://man7.org/linux/man-pages/man8/ss.8.html'],
+    'ss_flags',
+    exercise_guide='Edit `exercise.sh` and implement `ss_listen_flags`, `legacy_netstat`, `files_ports_tool`. Each function is a tiny retrieval drill for **ss, netstat, and lsof: See What Is Listening** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `ss_listen_flags` → `-tulpn`; `legacy_netstat` → `netstat`; `files_ports_tool` → `lsof`.',
 )
 
 add(
     10,
-    "nc-socat",
-    "nc/ncat and socat: Swiss Army Networking",
+    'nc-socat',
+    'nc/ncat and socat: Swiss Army Networking',
     P3,
-    "1–2 days",
-    [
-        "Test TCP/UDP ports with nc",
-        "Create quick lab listeners",
-        "Banner-grab carefully in labs",
-        "Know socat for advanced relays",
-    ],
-    """
-```bash
-# Port check
-nc -vz example.com 443
-nc -vz -w 3 10.0.0.5 22
-# UDP (partial signal)
-nc -vzu 1.1.1.1 53
-
-# Quick listener (lab only)
-nc -l 9090
-# other terminal:
-echo hello | nc 127.0.0.1 9090
-
-# HTTP over nc (lab)
-printf 'GET / HTTP/1.0\\r\\nHost: example.com\\r\\n\\r\\n' | nc example.com 80 | head
-
-# socat examples (if installed)
-socat - TCP:example.com:80
-socat TCP-LISTEN:8080,fork TCP:127.0.0.1:80
-```
-
-Use only on systems you own/are allowed to test.
-""",
-    [
-        "Leaving lab listeners on 0.0.0.0 in untrusted networks",
-        "Assuming UDP nc success means healthy service",
-        "Using nc for production TLS (prefer openssl/curl)",
-    ],
-    [
-        "nc flag for zero-I/O port scan style connect?",
-        "How listen on 9090?",
-        "Why UDP checks are weaker?",
-    ],
-    ["https://nmap.org/ncat/"],
-    "nc_vz",
+    '1–2 days',
+    ['Test TCP/UDP ports with nc', 'Create quick lab listeners', 'Banner-grab carefully in labs', 'Know socat for advanced relays'],
+    "## Why this matters\n\nYou need a quick TCP check, a one-shot HTTP listener, or a port forward without standing up nginx. `nc`/`socat` are the multitool — dangerous in the wrong hands, indispensable in a lab.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Test TCP/UDP ports with nc\n- Create quick lab listeners\n- Banner-grab carefully in labs\n- Know socat for advanced relays\n\nMental model for `10-nc-socat` (exercise kind `nc_vz`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nip -br addr; ip route; ip route get 1.1.1.1\n```\n\nSample output:\n\n```text\neth0 UP 192.168.1.20/24\ndefault via 192.168.1.1 dev eth0\n1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.20\n```\n\n**Interpretation:** `ip route get` shows the chosen route, egress device, and preferred source — gold for 'why did it leave this NIC?' questions.\n\n### Example 2\n\n```bash\nping -c 3 1.1.1.1\nss -tulpn | head\n# macOS: netstat -anv | head\n```\n\nSample output:\n\n```text\n3 packets transmitted, 3 received\nudp ... :53\ntcp LISTEN ... :22\n```\n\n**Interpretation:** ICMP OK proves basic L3; ss proves local listeners. Combine with ARP/neigh when LAN peers fail.\n\n### Example 3\n\n```bash\nip neigh show | head\nping -c 1 $(ip route | awk '/default/ {print $3; exit}')\n```\n\nSample output:\n\n```text\n192.168.1.1 dev eth0 lladdr ... REACHABLE\n64 bytes from gateway\n```\n\n**Interpretation:** Neighbor/ARP state validates L2 adjacency to the gateway before you blame the wider internet.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **nc/ncat and socat: Swiss Army Networking** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Leaving lab listeners on 0.0.0.0 in u... | See common mistakes | Re-run lesson commands |\n| Assuming UDP nc success means healthy... | See common mistakes | Re-run lesson commands |\n| Using nc for production TLS (prefer o... | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for nc/ncat and socat: Swiss Army Networking\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Leaving lab listeners on 0.0.0.0 in untrusted networks', 'Assuming UDP nc success means healthy service', 'Using nc for production TLS (prefer openssl/curl)'],
+    ['nc flag for zero-I/O port scan style connect?', 'How listen on 9090?', 'Why UDP checks are weaker?'],
+    ['https://nmap.org/ncat/'],
+    'nc_vz',
+    exercise_guide='Edit `exercise.sh` and implement `nc_port_check_flags`, `nc_listen_flag`, `swiss_army_relay`. Each function is a tiny retrieval drill for **nc/ncat and socat: Swiss Army Networking** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `nc_port_check_flags` → `-vz`; `nc_listen_flag` → `-l`; `swiss_army_relay` → `socat`.',
 )
 
-add(11, "tcp-udp", "TCP vs UDP, Handshakes, and Reliability", P1, "1–2 days",
-    ["Contrast TCP and UDP properties", "Explain three-way handshake conceptually", "Know when UDP is preferred", "Observe TCP with ss/tcpdump"],
-    """
-## TCP vs UDP
-
-| | TCP | UDP |
-|---|-----|-----|
-| Connection | yes | no |
-| Reliable delivery | yes | best-effort |
-| Ordered | yes | no |
-| Use cases | HTTP, SSH | DNS, QUIC/games, media |
-
-```bash
-# Established TCP
-ss -tan state established | head
-# Capture handshake (lab)
-sudo tcpdump -ni any -c 20 'tcp[tcpflags] & (tcp-syn) != 0'
-# UDP DNS
-sudo tcpdump -ni any -c 5 udp port 53
-```
-
-SYN → SYN-ACK → ACK establishes TCP. FIN/RST close or reset.
-""",
-    ["Using UDP and expecting TCP guarantees", "SYN floods without rate limits", "Forcing TCP where UDP+app reliability fits"],
-    ["Three-way handshake steps?", "Is DNS always UDP?", "Command to show established TCP?"],
-    ["https://www.rfc-editor.org/rfc/rfc9293"],
-    "tcp_vs_udp")
-
-add(12, "dns-basics", "DNS Basics: Resolvers, Records, dig", P4, "2 days",
-    ["Query A/AAAA/CNAME/MX/TXT/NS", "Explain recursive vs authoritative", "Use dig/drill/nslookup", "Read TTL and caching implications"],
-    """
-```bash
-dig example.com A +short
-dig example.com AAAA +short
-dig example.com NS +short
-dig example.com MX +short
-dig example.com TXT +short
-dig www.github.com CNAME +short
-
-dig example.com +noall +answer
-dig @1.1.1.1 example.com A
-dig example.com +trace                 # walk from root (noisy)
-
-# reverse DNS
-dig -x 1.1.1.1 +short
-
-# see full timing
-dig example.com | grep -E 'Query time|SERVER'
-```
-
-```bash
-# macOS/Linux alternatives
-host example.com
-nslookup example.com
-getent hosts example.com
-```
-""",
-    ["Flushing caches randomly as first step", "Ignoring TTL when debugging 'still old IP'", "Using +trace against rate-limited networks carelessly"],
-    ["dig for AAAA?", "What is +short?", "Recursive vs authoritative?"],
-    ["https://www.rfc-editor.org/rfc/rfc1035"],
-    "dig_short")
-
-add(13, "dns-debug", "DNS Debugging: NXDOMAIN, SERVFAIL, Split-Horizon", P4, "1–2 days",
-    ["Differentiate NXDOMAIN vs timeout vs SERVFAIL", "Inspect /etc/resolv.conf and systemd-resolved", "Debug search domains", "Handle private DNS vs public DNS conflicts"],
-    """
-```bash
-cat /etc/resolv.conf
-resolvectl status                 # systemd-resolved
-resolvectl query example.com
-
-# Compare resolvers
-dig @8.8.8.8 internal.corp.example A +time=2
-dig @10.0.0.2 internal.corp.example A +time=2
-
-# Common response codes in dig output: NOERROR, NXDOMAIN, SERVFAIL, REFUSED
-dig not-a-real-domain-xyz.invalid A
-```
-
-**Split-horizon**: internal and public names return different answers — corporate VPN classic.
-""",
-    ["Pointing corp laptops at 8.8.8.8 and breaking private zones", "Ignoring search domain appending", "Hardcoding IPs forever instead of fixing DNS"],
-    ["NXDOMAIN meaning?", "SERVFAIL meaning?", "Why VPN DNS matters?"],
-    ["https://man7.org/linux/man-pages/man5/resolv.conf.5.html"],
-    "dns_nx")
-
-add(14, "http-basics", "HTTP from the CLI: curl Mastery", P5, "2 days",
-    ["Use curl for GET/POST/headers/status", "Follow redirects consciously", "Set timeouts for scripts", "Save bodies and write-out metrics"],
-    """
-```bash
-curl -I https://example.com
-curl -sS -o /dev/null -w '%{http_code} %{time_total}\\n' https://example.com
-curl -v https://example.com 2>&1 | head -50
-
-# headers and methods
-curl -H 'Accept: application/json' https://httpbin.org/get
-curl -X POST -H 'Content-Type: application/json' -d '{"a":1}' https://httpbin.org/post
-
-# redirects
-curl -I https://google.com
-curl -IL https://google.com              # follow
-curl --max-redirs 2 -IL https://google.com
-
-# timeouts (critical in automation)
-curl --connect-timeout 2 --max-time 10 https://example.com
-
-# HTTP/2 / HTTP/3 if supported
-curl -I --http2 https://example.com
-curl -I --http3 https://example.com      # if build supports
-```
-""",
-    ["No timeouts in scripts", "Logging secrets in -v output", "Using -k forever"],
-    ["Flag for headers only?", "How print status code?", "Why max-time?"],
-    ["https://curl.se/docs/manpage.html"],
-    "curl_code")
-
-add(15, "tls-openssl", "TLS, Certificates, and openssl s_client", P5, "2 days",
-    ["Inspect remote certificates", "Check expiry and SANs", "Understand chain of trust", "Test TLS versions/ciphers at a basic level"],
-    """
-```bash
-openssl s_client -connect example.com:443 -servername example.com </dev/null 2>/dev/null | openssl x509 -noout -subject -issuer -dates
-
-echo | openssl s_client -connect example.com:443 -servername example.com 2>/dev/null | openssl x509 -noout -ext subjectAltName
-
-# show chain
-echo | openssl s_client -connect example.com:443 -showcerts 2>/dev/null | head -80
-
-# expiry monitoring style
-echo | openssl s_client -connect example.com:443 -servername example.com 2>/dev/null | openssl x509 -noout -enddate
-
-# curl certificate peek
-curl -vI https://example.com 2>&1 | grep -E 'SSL|subject|expire|issuer'
-```
-""",
-    ["Disabling verification with -k in production", "Missing intermediate certs", "Not monitoring expiry"],
-    ["Why servername/SNI?", "How view expiry?", "What is a SAN?"],
-    ["https://www.openssl.org/docs/man3.0/man1/openssl-s_client.html"],
-    "tls_enddate")
-
-add(16, "routing-basics", "Routing Tables and Default Gateways", P6, "1–2 days",
-    ["Read a routing table", "Explain longest-prefix match", "Find default gateway", "Use ip route get / route get"],
-    """
-```bash
-# Linux
-ip route
-ip route show table main
-ip route get 1.1.1.1
-ip route get 10.0.0.5 from 10.0.0.10 iif eth0
-
-# macOS
-netstat -rn
-route -n get default
-route -n get 1.1.1.1
-```
-
-**Longest prefix match**: more specific routes win (`10.0.1.0/24` over `10.0.0.0/8`).
-""",
-    ["Two default routes without understanding metrics", "Asymmetric routing surprises", "Deleting default route remotely without console"],
-    ["What is 0.0.0.0/0?", "What wins: /8 or /24?", "Command: which route to 1.1.1.1?"],
-    ["https://man7.org/linux/man-pages/man8/ip-route.8.html"],
-    "route_default")
-
-add(17, "static-dynamic-routing", "Static vs Dynamic Routing Concepts", P6, "1–2 days",
-    ["Contrast static routes vs OSPF/BGP ideas", "Know when static is enough", "Explain convergence at a high level", "Read simple BGP/OSPF vocabulary"],
-    """
-Static routes: operator-defined, simple, brittle at scale.
-Dynamic protocols: OSPF/IS-IS inside orgs; **BGP** between orgs/internet.
-
-```bash
-# You may see learned routes on routers/VMs with routing daemons
-ip route show protocol bgp 2>/dev/null
-vtysh -c 'show ip route' 2>/dev/null   # FRR/Quagga style labs
-```
-
-Lab idea: FRRouting in VMs — not required for every exercise, but valuable later.
-""",
-    ["Injecting static routes that fight BGP", "No documentation of static routes", "Assuming cloud route tables behave like home Wi-Fi"],
-    ["When static routes shine?", "BGP used where?", "What is convergence?"],
-    ["https://www.rfc-editor.org/rfc/rfc4271"],
-    "routing_bgp")
-
-add(18, "nat", "NAT, PAT, and Hairpinning", P8, "1–2 days",
-    ["Explain source NAT / PAT for internet egress", "Understand destination NAT / port forwards", "Spot NAT in troubleshooting", "Know hairpin NAT issues"],
-    """
-Home routers rewrite many private IPs to one public IP (**PAT**).
-
-```bash
-# On Linux NAT host (lab, nftables/iptables)
-sudo iptables -t nat -L -n -v
-sudo nft list table nat 2>/dev/null
-
-# See public IP from behind NAT
-curl -4 ifconfig.me
-```
-
-Symptoms of NAT: inbound connections fail without port forwards; \"peer sees wrong address\" in VoIP/P2P.
-""",
-    ["Exposing RDP/SSH via risky UPnP without care", "Overlapping NATed ranges in VPN merges", "Assuming inbound works like outbound"],
-    ["PAT means?", "Why inbound fails by default?", "Table name for iptables NAT?"],
-    ["https://www.rfc-editor.org/rfc/rfc3022"],
-    "nat_pat")
-
-add(19, "firewall-linux", "Host Firewalls: nftables, iptables, ufw", P8, "2 days",
-    ["List rules and policies", "Allow least ports", "Test with care to avoid lockout", "Prefer high-level tools when enough"],
-    """
-```bash
-# ufw (Ubuntu)
-sudo ufw status verbose
-sudo ufw default deny incoming
-sudo ufw allow OpenSSH
-sudo ufw allow 443/tcp
-sudo ufw enable
-
-# nftables
-sudo nft list ruleset
-# iptables legacy
-sudo iptables -L -n -v
-sudo iptables -S
-```
-
-Remote changes: keep an active console/session; allow SSH **before** enabling default deny.
-""",
-    ["Locking yourself out", "Disabling firewall instead of opening one port", "Forgetting IPv6 (`ip6tables`/`ufw`)"],
-    ["ufw allow SSH command idea?", "Why console access?", "nft list command?"],
-    ["https://wiki.nftables.org/"],
-    "fw_default")
-
-add(20, "tcpdump-basics", "tcpdump Basics for Engineers", P11, "2 days",
-    ["Capture with filters", "Write/read pcap files", "Read flags and ports", "Minimize capture blast radius"],
-    """
-```bash
-sudo tcpdump -ni eth0 -c 20
-sudo tcpdump -ni any port 53
-sudo tcpdump -ni eth0 host 10.0.0.5 and tcp port 443
-sudo tcpdump -ni eth0 'tcp[tcpflags] & (tcp-syn|tcp-fin) != 0'
-
-# write / read
-sudo tcpdump -ni eth0 -w /tmp/cap.pcap -c 100
-tcpdump -nr /tmp/cap.pcap | head
-tcpdump -nr /tmp/cap.pcap -A | head
-
-# useful verbosity
-sudo tcpdump -ni eth0 -vv -c 10 port 443
-```
-
-Wireshark GUI is great for deeper analysis of the same pcaps.
-""",
-    ["Capturing on prod without policy", "Huge unfiltered captures filling disks", "Sniffing secrets on shared networks"],
-    ["Filter for DNS?", "Flag to write pcap?", "Read pcap without capture?"],
-    ["https://www.tcpdump.org/manpages/tcpdump.1.html"],
-    "tcpdump_port")
-
-add(21, "wireshark-flow", "Reading Flows: Wireshark/tshark Essentials", P11, "1–2 days",
-    ["Open pcaps in Wireshark/tshark", "Follow TCP streams", "Apply display filters", "Export objects carefully"],
-    """
-```bash
-# tshark CLI examples
-tshark -r cap.pcap -Y 'http.request' -T fields -e http.host -e http.request.uri
-tshark -r cap.pcap -Y 'dns' -c 20
-tshark -r cap.pcap -q -z conv,tcp
-tshark -r cap.pcap -Y 'tls.handshake.type == 1' -V | head
-```
-
-Display filter examples (Wireshark): `ip.addr==10.0.0.5`, `tcp.port==443`, `http`, `dns.flags.rcode != 0`.
-""",
-    ["Assuming encrypted payloads are readable", "Over-trusting reassembly on packet loss", "Sharing pcaps with secrets"],
-    ["Follow TCP stream purpose?", "tshark -Y meaning?", "Filter for DNS errors idea?"],
-    ["https://www.wireshark.org/docs/"],
-    "tshark_dns")
-
-add(22, "dhcp", "DHCP and Address Assignment", P7, "1 day",
-    ["Explain Discover/Offer/Request/Ack", "Inspect leases", "Debug 'got 169.254'", "Know static vs DHCP tradeoffs"],
-    """
-```bash
-# Linux NetworkManager
-nmcli device show
-# leases locations vary
-ls /var/lib/dhcp/ 2>/dev/null
-journalctl -u NetworkManager | grep -i dhcp | tail
-
-# macOS
-ipconfig getpacket en0
-```
-
-`169.254.x.x` usually means DHCP failed → link-local fallback.
-""",
-    ["Two DHCP servers fighting on a LAN", "Tiny pools exhausting leases", "Static IP colliding with DHCP pool"],
-    ["DORA steps?", "What does 169.254 suggest?", "DHCP vs static when?"],
-    ["https://www.rfc-editor.org/rfc/rfc2131"],
-    "dhcp_apipa")
-
-add(23, "vlans", "VLANs and Trunking Concepts", P7, "1–2 days",
-    ["Explain VLAN segmentation", "Understand access vs trunk ports", "Know 802.1Q tagging idea", "See VLAN subinterfaces on Linux"],
-    """
-```bash
-# Linux VLAN subinterface example (lab)
-sudo ip link add link eth0 name eth0.20 type vlan id 20
-sudo ip addr add 10.20.0.10/24 dev eth0.20
-sudo ip link set eth0.20 up
-ip -d link show eth0.20
-```
-
-VLANs split broadcast domains — security/ops boundary, not magic encryption.
-""",
-    ["Using VLANs as only security control", "Native VLAN mismatches", "Overlapping IP plans across VLANs without routing"],
-    ["Access vs trunk?", "802.1Q does what?", "Do VLANs encrypt?"],
-    ["https://www.rfc-editor.org/rfc/rfc3069"],
-    "vlan_tag")
-
-add(24, "vpn-basics", "VPN Basics: IPsec, WireGuard, OpenVPN", P9, "2 days",
-    ["Contrast VPN types at a high level", "Read WireGuard quick configs conceptually", "Troubleshoot VPN DNS and routes", "Watch MTU/overhead issues"],
-    """
-```bash
-# WireGuard (if installed)
-sudo wg
-sudo wg show
-ip route | grep -E 'wg|tun|tun0'
-
-# OpenVPN legacy style
-ip addr show tun0
-```
-
-Common failures: missing routes, DNS still public, MTU blackholes, firewall blocking UDP 51820/1194.
-
-```bash
-ping -c 2 10.0.0.1                 # internal after VPN
-dig @10.0.0.2 internal.service A
-curl -I https://internal.service
-```
-""",
-    ["Full-tunnel VPN without need (hairpin pain)", "Split tunnel missing critical routes", "Ignoring MTU"],
-    ["WireGuard show command?", "Typical WG port?", "Why MTU drops with VPN?"],
-    ["https://www.wireguard.com/"],
-    "vpn_mtu")
-
-add(25, "ssh-tunnels", "SSH Tunnels and Port Forwards", P9, "1–2 days",
-    ["Use local/remote/dynamic SSH forwards", "Access private admin UIs safely", "Avoid standing tunnels forever without need", "Combine with ProxyJump"],
-    """
-```bash
-# Local forward: local 8080 -> remote's localhost:80 via ssh host
-ssh -L 8080:127.0.0.1:80 user@bastion
-
-# Remote forward
-ssh -R 9090:127.0.0.1:3000 user@bastion
-
-# Dynamic SOCKS
-ssh -D 1080 user@bastion
-curl --socks5-hostname 127.0.0.1:1080 https://example.com
-
-# Jump host
-ssh -J bastion user@internal
-# ~/.ssh/config: ProxyJump bastion
-```
-""",
-    ["Exposing binds on 0.0.0.0 unintentionally", "Long-lived tunnels as permanent VPN substitute without review", "Forgetting ExitOnForwardFailure"],
-    ["-L meaning?", "-D meaning?", "ProxyJump purpose?"],
-    ["https://man.openbsd.org/ssh"],
-    "ssh_L")
-
-add(26, "load-balancing", "Load Balancing Concepts and Health Checks", P10, "1–2 days",
-    ["Explain L4 vs L7 balancing", "Know health checks and draining", "Recognize algorithms (round-robin, least-conn)", "See nginx upstream basics"],
-    """
-L4: TCP/UDP (IP:port). L7: HTTP paths/headers.
-
-```bash
-# Probe backends yourself
-for b in 10.0.0.11 10.0.0.12; do
-  curl -sS -o /dev/null -w "$b %{http_code}\\n" --connect-timeout 1 http://$b/healthz || echo "$b down"
-done
-```
-
-Nginx sketch: `upstream`, `proxy_pass`, health via separate checks/sidecar.
-""",
-    ["No health checks", "Balancing without shared session strategy when needed", "Draining ignored during deploys"],
-    ["L4 vs L7?", "Why health checks?", "What is draining?"],
-    ["https://nginx.org/en/docs/http/load_balancing.html"],
-    "lb_l4l7")
-
-add(27, "reverse-proxy", "Reverse Proxies: TLS Termination and Headers", P10, "1–2 days",
-    ["Terminate TLS at proxy", "Pass X-Forwarded-* carefully", "Preserve client IP with real_ip", "Log correctly"],
-    """
-```bash
-# App sees proxy IP unless headers configured
-curl -H 'X-Forwarded-For: 1.2.3.4' http://localhost:8080/ || true
-
-# Test proxy locally
-curl -I https://localhost --cacert lab-ca.pem
-curl -I http://localhost/api
-```
-
-Trust `X-Forwarded-For` **only** from trusted proxies — otherwise clients can spoof.
-""",
-    ["Trusting XFF from the internet", "Mixed content / wrong redirect schemes", "Huge header sizes without limits"],
-    ["TLS termination meaning?", "Why not trust XFF blindly?", "real_ip purpose?"],
-    ["https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-For"],
-    "xff_trust")
-
-add(28, "http2-quic", "HTTP/2, HTTP/3, and QUIC Awareness", P5, "1 day",
-    ["Know why HTTP/2 multiplexes", "Understand QUIC runs on UDP", "Probe protocol with curl", "Relate to CDNs"],
-    """
-```bash
-curl -I --http1.1 https://example.com
-curl -I --http2 https://example.com
-curl -I --http3-only https://example.com 2>/dev/null || echo 'http3 not in this curl'
-curl -sS -o /dev/null -w '%{http_version}\\n' https://example.com
-```
-
-QUIC/HTTP3 can improve lossy networks; middleboxes sometimes break UDP.
-""",
-    ["Assuming HTTP/3 always faster", "Blocking UDP 443 enterprise-wide accidentally", "Ignoring fallback to TCP"],
-    ["HTTP/2 main benefit?", "QUIC transport?", "curl write-out for version?"],
-    ["https://www.rfc-editor.org/rfc/rfc9114"],
-    "http_version")
-
-add(29, "cdn-caching", "CDNs, Caching, and Cache Headers", P10, "1–2 days",
-    ["Read Cache-Control/ETag/Age", "Differentiate CDN edge vs origin issues", "Purge/invalidate conceptually", "Debug with response headers"],
-    """
-```bash
-curl -sI https://example.com | grep -iE 'cache-control|etag|age|cf-|x-cache|server'
-curl -sI -H 'Cache-Control: no-cache' https://example.com | head
-```
-
-When users see old content: TTL, Vary headers, stale-while-revalidate, regional POPs, or local browser cache.
-""",
-    ["Caching personalized/private responses publicly", "No versioning of static assets", "Purging entire site for one file habitually"],
-    ["Age header meaning?", "Why asset fingerprinting?", "Private vs public cache?"],
-    ["https://www.rfc-editor.org/rfc/rfc9111"],
-    "cache_control")
-
-add(30, "qos-traffic", "Latency, Bandwidth, Loss, and QoS Basics", P11, "1–2 days",
-    ["Separate latency vs bandwidth problems", "Measure with simple tools", "Explain bufferbloat idea", "Know QoS is policy + queuing"],
-    """
-```bash
-# rough latency
-ping -c 20 1.1.1.1
-# throughput tools if installed
-iperf3 -c iperf.example.com
-# DNS/app latency
-curl -sS -o /dev/null -w 'dns=%{time_namelookup} connect=%{time_connect} tls=%{time_appconnect} ttfb=%{time_starttransfer} total=%{time_total}\\n' https://example.com
-```
-
-Slow downloads can be bandwidth; slow pages often DNS/TLS/TTFB/app.
-""",
-    ["Buying more bandwidth for a latency-bound app", "Ignoring Wi-Fi interference", "No baseline metrics"],
-    ["TTFB meaning?", "ping measures what?", "Bandwidth fix won't help when?"],
-    ["https://www.bufferbloat.net/projects/"],
-    "curl_timing")
-
-add(31, "nmap-basics", "Scanning Basics with nmap (Lab Only)", P11, "1–2 days",
-    ["Scan ports ethically in labs", "Interpret open/closed/filtered", "Use service version detection carefully", "Never scan without authorization"],
-    """
-**Only scan networks you own or have written permission to test.**
-
-```bash
-nmap -sn 192.168.1.0/24                 # ping sweep (lab)
-nmap -sT -p 22,80,443 192.168.1.10
-nmap -sV -p 443 example.com             # version detect
-nmap -sU -p 53 192.168.1.1              # UDP (noisy/slow)
-nmap -oA labscan 192.168.1.10           # output basename
-```
-
-filtered ≠ closed. Firewalls create ambiguity.
-""",
-    ["Scanning the internet 'for practice'", "Aggressive scans on fragile devices", "Ignoring legal/ToS boundaries"],
-    ["When is scanning legal?", "open vs filtered?", "-sV meaning?"],
-    ["https://nmap.org/book/man.html"],
-    "nmap_auth")
-
-add(32, "bgp-internet", "How the Internet Routes: BGP at a Glance", P6, "1–2 days",
-    ["Explain ASNs and prefixes", "Understand announcements/withdrawals", "Use looking glasses / whois / bgp tools", "Know why leaks/hijacks matter"],
-    """
-```bash
-whois 1.1.1.1 | head -40
-whois -h whois.radb.net -- '-i origin AS13335' 2>/dev/null | head
-# public helpers
-curl -s https://ipinfo.io/1.1.1.1
-dig +short 1.1.1.1.origin.asn.cymru.com TXT
-```
-
-BGP picks paths between Autonomous Systems. Mis-announcements can blackhole or hijack traffic — RPKI/filtering mitigate.
-""",
-    ["Thinking traceroute equals BGP path always", "Ignoring prefix ownership", "Lab experiments on real upstreams"],
-    ["What is an ASN?", "What does whois help show?", "Why RPKI?"],
-    ["https://www.rfc-editor.org/rfc/rfc4271"],
-    "asn_quiz")
-
-add(33, "anycast-dns-cdn", "Anycast, GeoDNS, and Global Traffic", P10, "1 day",
-    ["Explain anycast routing idea", "Contrast with unicast", "Relate to DNS/CDN POPs", "Debug geo differences"],
-    """
-Anycast: same IP announced from many places; users hit nearby POP.
-
-```bash
-dig +short one.one.one.one
-ping -c 2 1.1.1.1
-curl -s https://cloudflare.com/cdn-cgi/trace | head
-curl -sI https://example.com | grep -i cf-ray
-```
-
-Different resolvers/regions may see different answers (GeoDNS).
-""",
-    ["Expecting one physical server behind 1.1.1.1", "Debugging only from one region", "Ignoring resolver location effects"],
-    ["Anycast vs unicast?", "Why region matters?", "CDN POP meaning?"],
-    ["https://www.cloudflare.com/learning/cdn/glossary/anycast-network/"],
-    "anycast_quiz")
-
-add(34, "email-dns", "Email Networking: MX, SPF, DKIM, DMARC", P4, "1–2 days",
-    ["Query MX records", "Read SPF TXT basics", "Know DKIM/DMARC roles", "Debug delivery with headers"],
-    """
-```bash
-dig example.com MX +short
-dig example.com TXT +short
-dig _dmarc.example.com TXT +short
-# DKIM selectors vary; example pattern:
-# dig selector._domainkey.example.com TXT +short
-```
-
-SPF authorizes senders; DKIM signs messages; DMARC policy aligns them. Networking + DNS + mail servers intertwine.
-""",
-    ["Permissive SPF (+all)", "No DMARC on important domains", "Forgetting PTR for mail IPs"],
-    ["MX purpose?", "SPF stored as what record?", "DMARC policy domain pattern?"],
-    ["https://www.rfc-editor.org/rfc/rfc7208"],
-    "mx_quiz")
-
-add(35, "ntp-time", "Time Sync and Why Networks Care", P11, "1 day",
-    ["Check clock sync", "Explain skew impact on TLS/auth/logs", "Use timedatectl/chronyc/ntpstat", "Correlate multi-host timelines"],
-    """
-```bash
-date -u
-timedatectl status                    # systemd
-chronyc tracking 2>/dev/null
-sntp time.google.com 2>/dev/null
-```
-
-Skew breaks Kerberos, confuses logs, and can invalidate TLS seemingly randomly.
-""",
-    ["Disabling NTP in VMs", "Comparing logs without timezone discipline", "Huge leap smears ignored"],
-    ["Why TLS cares about time?", "timedatectl purpose?", "UTC recommendation?"],
-    ["https://www.rfc-editor.org/rfc/rfc5905"],
-    "ntp_quiz")
-
-add(36, "wireless-basics", "Wi-Fi Networking Essentials", P7, "1 day",
-    ["SSID/BSSID/RSSI concepts", "Distinguish Wi-Fi vs ethernet failures", "Scan networks on Linux/macOS", "Know channels/interference exist"],
-    """
-```bash
-# Linux (if available)
-iwdev wlan0 link
-iwlist wlan0 scan 2>/dev/null | head
-nmcli device wifi list
-
-# macOS
-/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I
-```
-
-Many \"network down\" tickets are Wi-Fi; wire in to isolate.
-""",
-    ["Debugging TCP apps while on captive portal", "Ignoring 2.4GHz congestion", "VPN+Wi-Fi Power save weirdness"],
-    ["SSID vs BSSID?", "First isolation step?", "RSSI rough meaning?"],
-    ["https://linuxwireless.sipsolutions.net/"],
-    "wifi_quiz")
-
-add(37, "container-net", "Container Networking: Bridge, CNI, localhost Traps", P12, "2 days",
-    ["Explain docker bridge basics", "Publish ports correctly", "Debug DNS inside containers", "Avoid localhost confusion"],
-    """
-```bash
-docker network ls
-docker run --rm curlimages/curl:latest curl -4 -I https://example.com
-docker run --rm -p 8080:80 nginx
-curl -I http://127.0.0.1:8080
-
-# inspect
-docker network inspect bridge | head
-nsenter tips / ip netns (advanced Linux)
-```
-
-`localhost` inside a container is the container, not the host. Use host gateway / service names / published ports.
-""",
-    ["--network host as default", "Assuming container DNS equals host DNS always", "Publishing all ports broadly"],
-    ["localhost in container means?", "-p 8080:80 meaning?", "docker network ls purpose?"],
-    ["https://docs.docker.com/network/"],
-    "docker_localhost")
-
-add(38, "kubernetes-net", "Kubernetes Networking Concepts for Engineers", P12, "2 days",
-    ["Pod/Service/ClusterIP/NodePort/Ingress ideas", "kubectl network debugging basics", "CoreDNS importance", "NetworkPolicy awareness"],
-    """
-```bash
-kubectl get svc -A
-kubectl get endpoints -A | head
-kubectl -n kube-system get pods -l k8s-app=kube-dns
-kubectl run netshoot --rm -it --image=nicolaka/netshoot -- /bin/bash
-# inside: dig kubernetes.default.svc.cluster.local; curl svcname
-kubectl exec -it deploy/myapp -- ss -tulpn
-```
-
-If DNS in cluster breaks, \"everything is broken\". NetworkPolicies can deny silently.
-""",
-    ["kubectl apply without understanding Services", "Using NodePort on cloud without LB", "Flat allow-all policies forever"],
-    ["ClusterIP purpose?", "CoreDNS role?", "NetworkPolicy default deny effect?"],
-    ["https://kubernetes.io/docs/concepts/services-networking/"],
-    "k8s_svc")
-
-add(39, "cloud-vpc", "Cloud VPCs: Subnets, Route Tables, Gateways", P12, "2 days",
-    ["Map VPC/subnet/route table/IGW/NAT", "Design public vs private subnets", "Avoid overlapping CIDRs for peering", "Read cloud route tables like `ip route`"],
-    """
-Mental model maps cleanly to Linux routing:
-
-- Route table → `ip route`
-- SG/NACL → host/network firewalls
-- NAT gateway → SNAT egress
-- IGW → public path
-
-```bash
-# From a cloud VM
-ip route
-curl -4 ifconfig.me
-# AWS metadata example (know IMDSv2!) — prefer cloud CLI offline study if unsure
-```
-
-Always plan non-overlapping CIDRs for future peering/VPN.
-""",
-    ["All subnets public", "Overlapping 10.0.0.0/8 everywhere", "No egress strategy for private subnets"],
-    ["Private subnet egress via?", "Why non-overlapping CIDRs?", "SG stateful meaning roughly?"],
-    ["https://docs.aws.amazon.com/vpc/latest/userguide/what-is-amazon-vpc.html"],
-    "vpc_cidrs")
-
-add(40, "security-groups", "Security Groups vs NACLs vs Host Firewalls", P8, "1–2 days",
-    ["Contrast SG/NACL/host firewall layers", "Write least-privilege allowlists", "Debug timeouts vs resets", "Trace which layer drops"],
-    """
-Timeouts often mean **drop** (SG/NACL/firewall). Immediate RST may mean closed port on host.
-
-```bash
-# Client evidence
-curl -v --connect-timeout 3 https://target:443 || true
-nc -vz -w 3 target 443
-
-# On host
-ss -tulpn | grep 443
-sudo nft list ruleset | head
-```
-
-Layered controls: cloud SG + host nft/ufw + app auth.
-""",
-    ["0.0.0.0/0 on SSH in prod", "Only SGs, no host hardening", "Changing three layers at once"],
-    ["Timeout often means?", "RST often means?", "Why defense in depth?"],
-    ["https://docs.aws.amazon.com/vpc/latest/userguide/vpc-security-groups.html"],
-    "sg_timeout")
-
-add(41, "tls-mtls", "mTLS and Service Identity Intro", P5, "1–2 days",
-    ["Explain client certificates", "Contrast mTLS vs token auth", "Inspect cert fields for clients", "Know mesh (Istio/Linkerd) uses mTLS"],
-    """
-```bash
-# Server requesting client cert will fail without key/cert
-curl -v --cert client.pem --key client-key.pem https://mtls.example.lab/ || true
-openssl x509 -in client.pem -noout -subject -dates
-```
-
-mTLS authenticates both sides at TLS layer — powerful inside private service meshes.
-""",
-    ["Long-lived client certs without rotation", "Skipping revocation strategy", "Mixing mTLS and permissive plaintext elsewhere"],
-    ["mTLS means?", "curl flags for client cert?", "Mesh relation?"],
-    ["https://www.rfc-editor.org/rfc/rfc8446"],
-    "mtls_quiz")
-
-add(42, "dns-dnssec", "DNSSEC and DNS Security Awareness", P4, "1 day",
-    ["Know what DNSSEC protects", "See AD flag in dig", "Understand it does not encrypt DNS", "Prefer DoH/DoT for privacy"],
-    """
-```bash
-dig example.com +dnssec +noall +answer +comments
-dig example.com +dnssec | grep -E 'flags:|RRSIG'
-# DoH example via curl
-curl -sH 'accept: application/dns-json' 'https://cloudflare-dns.com/dns-query?name=example.com&type=A' | head -c 200; echo
-```
-
-DNSSEC → authenticity/integrity. DoH/DoT → privacy on path to resolver.
-""",
-    ["Thinking DNSSEC hides queries", "Broken middleboxes failing DNSSEC validation", "No monitoring of DNSSEC expirations for your zones"],
-    ["DNSSEC vs DoH?", "dig flag to request DNSSEC records?", "What problem DNSSEC does not solve?"],
-    ["https://www.rfc-editor.org/rfc/rfc4033"],
-    "dnssec_quiz")
-
-add(43, "observability-net", "Network Observability: Metrics, Logs, Traces", P11, "1–2 days",
-    ["Define golden network signals", "Instrument latency/errors from clients", "Use flow logs conceptually", "Correlate app traces with net failures"],
-    """
-Signals: reachability, RTT, loss, DNS latency, TLS latency, saturation, error rates.
-
-```bash
-# continuous simple probe
-while true; do
-  curl -sS -o /dev/null -w '%{http_code} %{time_total}\\n' https://example.com || echo fail
-  sleep 2
-done
-```
-
-Cloud flow logs / VPC logs help prove whether packets left a NIC/SG.
-""",
-    ["Metrics without alerts", "Only average latency", "No probe from multiple regions"],
-    ["Name four golden signals", "Why percentiles?", "Flow logs help prove what?"],
-    ["https://sre.google/sre-book/monitoring-distributed-systems/"],
-    "obs_probe")
-
-add(44, "troubleshooting-playbook", "Networking Troubleshooting Playbook", P11, "2 days",
-    ["Apply a layered checklist", "Capture evidence before changing things", "Bisect path: local → LAN → WAN → DNS → TLS → app", "Write crisp incident notes"],
-    """
-## Checklist
-
-```bash
-# 1) Local
-ip -br addr; ip route; scutil --dns 2>/dev/null | head
-# 2) L2/L3
-ping -c 2 <gw>; ip neigh
-# 3) DNS
-dig example.com +time=1
-# 4) TCP
-nc -vz -w 3 example.com 443
-# 5) TLS/HTTP
-curl -vI --max-time 5 https://example.com
-# 6) Capture if needed
-sudo tcpdump -ni any -c 50 host example.com
-```
-
-Change one variable at a time. Record timestamps.
-""",
-    ["Shotgun restarts", "No notes", "Skipping DNS"],
-    ["First three checks?", "Why evidence before reboot?", "Where capture fits?"],
-    ["https://sre.google/sre-book/"],
-    "playbook_order")
-
-add(45, "performance-tuning", "Host Network Performance Tuning Intro", P11, "1–2 days",
-    ["Inspect RX/TX errors and drops", "Know ephemerial port exhaustion exists", "Tune carefully with evidence", "Relate to ulimit/somaxconn"],
-    """
-```bash
-ip -s link
-netstat -s | head -50                   # or ss -s
-cat /proc/sys/net/ipv4/ip_local_port_range   # Linux
-sysctl net.core.somaxconn
-ss -s
-```
-
-High `CLOSE-WAIT`/`TIME-WAIT`, port range exhaustion, NIC errors — measure first, then tune.
-""",
-    ["sysctl cargo cult from blogs", "Raising limits hiding leaks", "Ignoring NIC hardware offload/errors"],
-    ["Where see interface drops?", "Ephemeral ports why?", "Measure before tune?"],
-    ["https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt"],
-    "perf_sysctl")
-
-add(46, "api-gateways", "API Gateways and Edge Patterns", P10, "1–2 days",
-    ["Place auth/rate-limit/WAF at edge", "Distinguish gateway vs service mesh", "Debug 502/503/504 meanings", "Trace request IDs across hops"],
-    """
-```bash
-curl -I https://api.example.com/v1/health
-curl -sS -o /dev/null -w '%{http_code}\\n' https://api.example.com/v1/missing
-# common gateway timeouts -> 504
-```
-
-502 bad gateway (upstream nonsense), 503 unavailable, 504 timeout — start at proxy logs + upstream health.
-""",
-    ["Business logic only in gateway forever", "No correlation IDs", "Retry storms without backoff"],
-    ["504 often means?", "502 hints?", "Why request IDs?"],
-    ["https://www.rfc-editor.org/rfc/rfc9110"],
-    "gw_504")
-
-add(47, "zero-trust", "Zero Trust Networking Ideas", P9, "1 day",
-    ["Move beyond flat VPN trust", "Prefer identity-aware access", "Least privilege paths", "Combine device posture + user identity"],
-    """
-Zero trust: never trust network location alone. Authenticate/authorize continuously.
-
-Practical steps: SSO, short-lived certs, mTLS/mesh, per-service policies, avoid huge flat /16 VPNs with implicit trust.
-
-```bash
-# Still verify paths explicitly
-curl -I https://internal.example.com
-# without VPN / with identity proxy patterns (org-specific)
-```
-""",
-    ["VPN equals secure forever", "Flat allow-all east-west", "Long-lived shared secrets"],
-    ["Zero trust core idea?", "Risk of flat VPN?", "Short-lived creds why?"],
-    ["https://www.nist.gov/publications/zero-trust-architecture"],
-    "zt_quiz")
-
-add(48, "lab-packet", "Lab: Build a Mini Network Path", P0, "2 days",
-    ["Connect two VMs via private network", "Set addresses/routes manually", "Verify with ping/curl/tcpdump", "Document the path"],
-    """
-Suggested lab:
-
-1. VM A `10.10.0.1/24`, VM B `10.10.0.2/24`
-2. `ping` both ways
-3. Run `python3 -m http.server 8080` on B; `curl` from A
-4. `tcpdump` the handshake
-5. Add a third \"router\" VM later for multi-hop
-
-```bash
-sudo ip addr add 10.10.0.1/24 dev eth1
-sudo ip link set eth1 up
-ping -c 3 10.10.0.2
-```
-""",
-    ["Using public internet for first labs", "No snapshots before routing experiments", "Overlapping subnets"],
-    ["What proves L3 connectivity?", "How prove HTTP path?", "Why tcpdump?"],
-    ["https://netdevops.me/"],
-    "lab_pair")
-
-add(49, "command-cheatsheet", "Command Cheatsheet Consolidation Drill", P3, "1–2 days",
-    ["Memorize a personal daily cheatsheet", "Group tools by layer", "Practice without looking", "Keep a living notes file"],
-    """
-## Must-know roster
-
-```bash
-ip -br a; ip r; ip neigh
-ss -tulpn
-ping -c 3 <t>; mtr -rwzc 50 <t>
-dig <name> +short; dig @1.1.1.1 <name>
-curl -vI --max-time 5 https://<t>
-openssl s_client -connect host:443 -servername host
-nc -vz -w 3 host 443
-sudo tcpdump -ni any -c 20 host <t>
-```
-
-Rebuild this list from memory as the exercise.
-""",
-    ["Huge unsorted note dumps", "Never practicing recall", "Tools without understanding"],
-    ["Name two tools per L3/L4/L7", "Why cheatsheets help oncalls?", "What belongs in daily roster?"],
-    ["https://wiki.archlinux.org/title/Network_configuration"],
-    "cheat_count")
-
-add(50, "gre-vxlan", "Tunnels: GRE/VXLAN Overlay Awareness", P9, "1–2 days",
-    ["Explain overlays vs underlays", "Know VXLAN for multi-tenant/datacenter", "See Linux vxlan devices", "Relate to cloud SDN"],
-    """
-```bash
-ip link show type vxlan
-ip -d link show
-# example create is lab-only and environment-specific
-```
-
-Overlays carry L2/L3 over underlay IP. MTU and encapsulation overhead matter again.
-""",
-    ["Ignoring underlay MTU", "Debugging only overlay IPs", "No mapping of VNI/tenants"],
-    ["Overlay vs underlay?", "VXLAN common use?", "Why MTU again?"],
-    ["https://www.rfc-editor.org/rfc/rfc7348"],
-    "vxlan_quiz")
-
-add(51, "quic-firewall", "Firewalls, Middleboxes, and Modern Protocols", P8, "1 day",
-    ["Know middleboxes can break UDP/QUIC", "Test fallbacks", "Design allowlists for new protocols", "Document egress needs"],
-    """
-```bash
-curl -I --http3-only https://example.com || echo 'blocked or unsupported'
-curl -I --http2 https://example.com
-# observe which ports egress needs
-nc -vzu -w 2 1.1.1.1 443 || true
-```
-
-Enterprise networks that hard-block UDP may degrade HTTP/3; apps should fallback gracefully.
-""",
-    ["Blind UDP blocks without measurement", "Assuming middleboxes are transparent", "No inventory of required egress"],
-    ["Why UDP 443 matters?", "What is a middlebox?", "Fallback strategy?"],
-    ["https://www.rfc-editor.org/rfc/rfc9308"],
-    "middlebox_quiz")
-
-add(52, "interview-net", "Networking Interview & Oncall Drills", P11, "2 days",
-    ["Explain issues aloud with structure", "Whiteboard a path", "Solve timed scenarios", "Prioritize user impact"],
-    """
-Scenarios:
-
-- Users in one city cannot login
-- Intermittent TLS failures
-- DNS works for you, not for customers
-- Pod cannot reach DB
-- Site slow only on mobile networks
-
-Use the playbook; narrate evidence.
-""",
-    ["Jumping to rare root causes first", "No communication", "Fixing without verifying"],
-    ["One-city issue first suspects?", "TLS intermittent ideas?", "Verify how?"],
-    ["https://sre.google/sre-book/managing-incidents/"],
-    "interview_drill")
-
-add(53, "capstone-lab-net", "Capstone: Multi-Host Lab Network", P13, "3–5 days",
-    ["Build 3-node lab with routing", "Provide DNS or /etc/hosts strategy", "Serve HTTP via proxy", "Document addressing & runbook"],
-    """
-## Mission
-
-- 3 Linux VMs: client, router/proxy, server
-- Static IPs + routes
-- `curl` from client to service via proxy
-- tcpdump evidence of path
-- Basic firewall allowing only needed ports
-- Written network diagram + runbook
-
-## Rubric
-
-- Correct routing table
-- Evidence captures
-- Least ports open
-- Clean reboot persistence notes
-""",
-    ["DHCP chaos without notes", "No diagram", "All ports open"],
-    ["What is the next hop from client?", "Which ports open?", "How prove path?"],
-    ["https://netdevops.me/"],
-    "cap_lab")
-
-add(54, "capstone-debug", "Capstone: Broken Network Challenge", P13, "2–4 days",
-    ["Debug planted failures", "Produce timeline + root cause", "Fix with minimal change", "Write postmortem"],
-    """
-Break a snapshot on purpose (wrong route, bad DNS, blocked SG, MTU, expired cert, hosts file typo). Restore service with postmortem:
-
-Impact → Timeline → Root cause → Fix → Prevention
-""",
-    ["Recreate VMs instead of debugging", "Changing everything", "No postmortem"],
-    ["Root cause?", "Evidence?", "Prevention?"],
-    ["https://sre.google/sre-book/postmortem-culture/"],
-    "cap_break")
-
-add(55, "capstone-edge", "Capstone: Secure Edge for a Small App", P13, "4–6 days",
-    ["Terminate TLS at edge", "Reverse proxy to app", "Firewall + SSH hardening + health checks", "Probe latency/error metrics"],
-    """
-## Mission
-
-Deploy a small app behind:
-
-- Reverse proxy with TLS (lab certs OK)
-- Health checks and structured logs
-- Host firewall
-- Optional WireGuard admin access instead of public SSH
-- Simple uptime probe script with curl timings
-- Runbook for cert renewal and failure modes
-
-## Rubric
-
-- Least privilege exposure
-- Clear 502/504 debugging notes
-- Evidence of probe dashboard/log
-- Graceful reloads
-""",
-    ["App exposed directly on :80 public", "No health checks", "Certs without renewal plan"],
-    ["What is public?", "How detect expiry?", "How prove health?"],
-    ["https://nginx.org/en/docs/"],
-    "cap_edge")
+add(
+    11,
+    'tcp-udp',
+    'TCP vs UDP, Handshakes, and Reliability',
+    P1,
+    '1–2 days',
+    ['Contrast TCP and UDP properties', 'Explain three-way handshake conceptually', 'Know when UDP is preferred', 'Observe TCP with ss/tcpdump'],
+    "## Why this matters\n\nAn API 'loses' messages under load while metrics look fine. TCP retransmits vs UDP datagram drops change the design: reliability at L4 vs in the application.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Contrast TCP and UDP properties\n- Explain three-way handshake conceptually\n- Know when UDP is preferred\n- Observe TCP with ss/tcpdump\n\nMental model for `11-tcp-udp` (exercise kind `tcp_vs_udp`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nip -br addr; ip route; ip route get 1.1.1.1\n```\n\nSample output:\n\n```text\neth0 UP 192.168.1.20/24\ndefault via 192.168.1.1 dev eth0\n1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.20\n```\n\n**Interpretation:** `ip route get` shows the chosen route, egress device, and preferred source — gold for 'why did it leave this NIC?' questions.\n\n### Example 2\n\n```bash\nping -c 3 1.1.1.1\nss -tulpn | head\n# macOS: netstat -anv | head\n```\n\nSample output:\n\n```text\n3 packets transmitted, 3 received\nudp ... :53\ntcp LISTEN ... :22\n```\n\n**Interpretation:** ICMP OK proves basic L3; ss proves local listeners. Combine with ARP/neigh when LAN peers fail.\n\n### Example 3\n\n```bash\nip neigh show | head\nping -c 1 $(ip route | awk '/default/ {print $3; exit}')\n```\n\nSample output:\n\n```text\n192.168.1.1 dev eth0 lladdr ... REACHABLE\n64 bytes from gateway\n```\n\n**Interpretation:** Neighbor/ARP state validates L2 adjacency to the gateway before you blame the wider internet.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **TCP vs UDP, Handshakes, and Reliability** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Using UDP and expecting TCP guarantees | See common mistakes | Re-run lesson commands |\n| SYN floods without rate limits | See common mistakes | Re-run lesson commands |\n| Forcing TCP where UDP+app reliability... | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for TCP vs UDP, Handshakes, and Reliability\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Using UDP and expecting TCP guarantees', 'SYN floods without rate limits', 'Forcing TCP where UDP+app reliability fits'],
+    ['Three-way handshake steps?', 'Is DNS always UDP?', 'Command to show established TCP?'],
+    ['https://www.rfc-editor.org/rfc/rfc9293'],
+    'tcp_vs_udp',
+    exercise_guide='Edit `exercise.sh` and implement `reliable_transport`, `datagram_transport`, `tcp_first_flag`. Each function is a tiny retrieval drill for **TCP vs UDP, Handshakes, and Reliability** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `reliable_transport` → `TCP`; `datagram_transport` → `UDP`; `tcp_first_flag` → `SYN`.',
+)
+
+add(
+    12,
+    'dns-basics',
+    'DNS Basics: Resolvers, Records, dig',
+    P4,
+    '2 days',
+    ['Query A/AAAA/CNAME/MX/TXT/NS', 'Explain recursive vs authoritative', 'Use dig/drill/nslookup', 'Read TTL and caching implications'],
+    "## Why this matters\n\nBrowser fails, `ping` to an IP works. That is DNS until proven otherwise — resolvers, record types, TTL, and `dig` literacy cut hours off incidents.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Query A/AAAA/CNAME/MX/TXT/NS\n- Explain recursive vs authoritative\n- Use dig/drill/nslookup\n- Read TTL and caching implications\n\nMental model for `12-dns-basics` (exercise kind `dig_short`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\ndig example.com A +short\ndig example.com AAAA +short\ndig example.com NS +short\n```\n\nSample output:\n\n```text\n93.184.216.34\n2606:2800:220:1:248:1893:25c8:1946\na.iana-servers.net.\n```\n\n**Interpretation:** A/AAAA/NS answers show what clients may use. Empty AAAA is not always an error on IPv4-only paths.\n\n### Example 2\n\n```bash\ndig @1.1.1.1 example.com +noall +answer +stats\n```\n\nSample output:\n\n```text\nexample.com. 300 IN A 93.184.216.34\n;; Query time: 18 msec\n;; SERVER: 1.1.1.1#53\n```\n\n**Interpretation:** Pinning `@resolver` removes 'which stub resolver?' ambiguity. Query time and SERVER lines matter when comparing sites.\n\n### Example 3\n\n```bash\ndig not-a-real-xyz.invalid A +noall +comments 2>/dev/null | head -20\n```\n\nSample output:\n\n```text\n;; ->>HEADER<<- opcode: QUERY, status: NXDOMAIN, id: ...\n```\n\n**Interpretation:** NXDOMAIN means the name does not exist at the queried view — different from timeout or SERVFAIL.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **DNS Basics: Resolvers, Records, dig** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Flushing caches randomly as first step | See common mistakes | Re-run lesson commands |\n| Ignoring TTL when debugging 'still ol... | See common mistakes | Re-run lesson commands |\n| Using +trace against rate-limited net... | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for DNS Basics: Resolvers, Records, dig\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Flushing caches randomly as first step', "Ignoring TTL when debugging 'still old IP'", 'Using +trace against rate-limited networks carelessly'],
+    ['dig for AAAA?', 'What is +short?', 'Recursive vs authoritative?'],
+    ['https://www.rfc-editor.org/rfc/rfc1035'],
+    'dig_short',
+    exercise_guide='Edit `exercise.sh` and implement `dig_short_flags`, `dns_type_a`, `dns_type_mx`. Each function is a tiny retrieval drill for **DNS Basics: Resolvers, Records, dig** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `dig_short_flags` → `+short`; `dns_type_a` → `A`; `dns_type_mx` → `MX`.',
+)
+
+add(
+    13,
+    'dns-debug',
+    'DNS Debugging: NXDOMAIN, SERVFAIL, Split-Horizon',
+    P4,
+    '1–2 days',
+    ['Differentiate NXDOMAIN vs timeout vs SERVFAIL', 'Inspect /etc/resolv.conf and systemd-resolved', 'Debug search domains', 'Handle private DNS vs public DNS conflicts'],
+    "## Why this matters\n\nOne office gets NXDOMAIN, another gets the old A record, CI gets SERVFAIL. Split-horizon, cache poisoning of your brain (stale TTL), and upstream SERVFAIL need different fixes.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Differentiate NXDOMAIN vs timeout vs SERVFAIL\n- Inspect /etc/resolv.conf and systemd-resolved\n- Debug search domains\n- Handle private DNS vs public DNS conflicts\n\nMental model for `13-dns-debug` (exercise kind `dns_nx`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\ndig example.com A +short\ndig example.com AAAA +short\ndig example.com NS +short\n```\n\nSample output:\n\n```text\n93.184.216.34\n2606:2800:220:1:248:1893:25c8:1946\na.iana-servers.net.\n```\n\n**Interpretation:** A/AAAA/NS answers show what clients may use. Empty AAAA is not always an error on IPv4-only paths.\n\n### Example 2\n\n```bash\ndig @1.1.1.1 example.com +noall +answer +stats\n```\n\nSample output:\n\n```text\nexample.com. 300 IN A 93.184.216.34\n;; Query time: 18 msec\n;; SERVER: 1.1.1.1#53\n```\n\n**Interpretation:** Pinning `@resolver` removes 'which stub resolver?' ambiguity. Query time and SERVER lines matter when comparing sites.\n\n### Example 3\n\n```bash\ndig not-a-real-xyz.invalid A +noall +comments 2>/dev/null | head -20\n```\n\nSample output:\n\n```text\n;; ->>HEADER<<- opcode: QUERY, status: NXDOMAIN, id: ...\n```\n\n**Interpretation:** NXDOMAIN means the name does not exist at the queried view — different from timeout or SERVFAIL.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **DNS Debugging: NXDOMAIN, SERVFAIL, Split-Horizon** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Pointing corp laptops at 8.8.8.8 and ... | See common mistakes | Re-run lesson commands |\n| Ignoring search domain appending | See common mistakes | Re-run lesson commands |\n| Hardcoding IPs forever instead of fix... | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for DNS Debugging: NXDOMAIN, SERVFAIL, Split-Horizon\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Pointing corp laptops at 8.8.8.8 and breaking private zones', 'Ignoring search domain appending', 'Hardcoding IPs forever instead of fixing DNS'],
+    ['NXDOMAIN meaning?', 'SERVFAIL meaning?', 'Why VPN DNS matters?'],
+    ['https://man7.org/linux/man-pages/man5/resolv.conf.5.html'],
+    'dns_nx',
+    exercise_guide='Edit `exercise.sh` and implement `nxdomain_means`, `servfail_means`, `split_dns_name`. Each function is a tiny retrieval drill for **DNS Debugging: NXDOMAIN, SERVFAIL, Split-Horizon** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `nxdomain_means` → `name-not-exist`; `servfail_means` → `resolver-error`; `split_dns_name` → `split-horizon`.',
+)
+
+add(
+    14,
+    'http-basics',
+    'HTTP from the CLI: curl Mastery',
+    P5,
+    '2 days',
+    ['Use curl for GET/POST/headers/status', 'Follow redirects consciously', 'Set timeouts for scripts', 'Save bodies and write-out metrics'],
+    "## Why this matters\n\nSwagger 'works' but production clients fail. `curl -v`, method/headers, redirects, and write-out timings expose what GUIs hide.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Use curl for GET/POST/headers/status\n- Follow redirects consciously\n- Set timeouts for scripts\n- Save bodies and write-out metrics\n\nMental model for `14-http-basics` (exercise kind `curl_code`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\ncurl -I https://example.com 2>&1 | head -15\n```\n\nSample output:\n\n```text\nHTTP/2 200\ncontent-type: text/html\ncache-control: max-age=...\n```\n\n**Interpretation:** Response line and headers are L7 evidence after TCP/TLS succeeded.\n\n### Example 2\n\n```bash\ncurl -sS -o /dev/null -w 'code=%{http_code} ttfb=%{time_starttransfer} total=%{time_total} ver=%{http_version}\\n' https://example.com\n```\n\nSample output:\n\n```text\ncode=200 ttfb=0.120 total=0.180 ver=2\n```\n\n**Interpretation:** Write-out metrics separate connect delay from first-byte and total time — essential for gateway/CDN debates.\n\n### Example 3\n\n```bash\necho | openssl s_client -connect example.com:443 -servername example.com 2>/dev/null | openssl x509 -noout -subject -dates\n```\n\nSample output:\n\n```text\nsubject=CN = example.com\nnotBefore=...\nnotAfter=...\n```\n\n**Interpretation:** Certificate identity and expiry are independent of HTTP 200. SNI (`-servername`) selects the cert on shared IPs.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **HTTP from the CLI: curl Mastery** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| No timeouts in scripts | See common mistakes | Re-run lesson commands |\n| Logging secrets in -v output | See common mistakes | Re-run lesson commands |\n| Using -k forever | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for HTTP from the CLI: curl Mastery\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['No timeouts in scripts', 'Logging secrets in -v output', 'Using -k forever'],
+    ['Flag for headers only?', 'How print status code?', 'Why max-time?'],
+    ['https://curl.se/docs/manpage.html'],
+    'curl_code',
+    exercise_guide='Edit `exercise.sh` and implement `curl_head_flag`, `curl_status_var`, `curl_follow_flag`. Each function is a tiny retrieval drill for **HTTP from the CLI: curl Mastery** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `curl_head_flag` → `-I`; `curl_status_var` → `%{http_code}`; `curl_follow_flag` → `-L`.',
+)
+
+add(
+    15,
+    'tls-openssl',
+    'TLS, Certificates, and openssl s_client',
+    P5,
+    '2 days',
+    ['Inspect remote certificates', 'Check expiry and SANs', 'Understand chain of trust', 'Test TLS versions/ciphers at a basic level'],
+    "## Why this matters\n\nMobile users see certificate warnings; desktop is fine. SNI, chain incompleteness, and clock skew are TLS issues you prove with `openssl s_client`, not by restarting the app randomly.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Inspect remote certificates\n- Check expiry and SANs\n- Understand chain of trust\n- Test TLS versions/ciphers at a basic level\n\nMental model for `15-tls-openssl` (exercise kind `tls_enddate`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\ncurl -I https://example.com 2>&1 | head -15\n```\n\nSample output:\n\n```text\nHTTP/2 200\ncontent-type: text/html\ncache-control: max-age=...\n```\n\n**Interpretation:** Response line and headers are L7 evidence after TCP/TLS succeeded.\n\n### Example 2\n\n```bash\ncurl -sS -o /dev/null -w 'code=%{http_code} ttfb=%{time_starttransfer} total=%{time_total} ver=%{http_version}\\n' https://example.com\n```\n\nSample output:\n\n```text\ncode=200 ttfb=0.120 total=0.180 ver=2\n```\n\n**Interpretation:** Write-out metrics separate connect delay from first-byte and total time — essential for gateway/CDN debates.\n\n### Example 3\n\n```bash\necho | openssl s_client -connect example.com:443 -servername example.com 2>/dev/null | openssl x509 -noout -subject -dates\n```\n\nSample output:\n\n```text\nsubject=CN = example.com\nnotBefore=...\nnotAfter=...\n```\n\n**Interpretation:** Certificate identity and expiry are independent of HTTP 200. SNI (`-servername`) selects the cert on shared IPs.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **TLS, Certificates, and openssl s_client** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Disabling verification with -k in pro... | See common mistakes | Re-run lesson commands |\n| Missing intermediate certs | See common mistakes | Re-run lesson commands |\n| Not monitoring expiry | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for TLS, Certificates, and openssl s_client\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Disabling verification with -k in production', 'Missing intermediate certs', 'Not monitoring expiry'],
+    ['Why servername/SNI?', 'How view expiry?', 'What is a SAN?'],
+    ['https://www.openssl.org/docs/man3.0/man1/openssl-s_client.html'],
+    'tls_enddate',
+    exercise_guide='Edit `exercise.sh` and implement `openssl_dates_flag`, `sni_acronym`, `san_acronym`. Each function is a tiny retrieval drill for **TLS, Certificates, and openssl s_client** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `openssl_dates_flag` → `-dates`; `sni_acronym` → `SNI`; `san_acronym` → `SAN`.',
+)
+
+add(
+    16,
+    'routing-basics',
+    'Routing Tables and Default Gateways',
+    P6,
+    '1–2 days',
+    ['Read a routing table', 'Explain longest-prefix match', 'Find default gateway', 'Use ip route get / route get'],
+    "## Why this matters\n\nPackets leave the wrong NIC after a secondary default route appears. Routing tables and `ip route get` are the source of truth for egress.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Read a routing table\n- Explain longest-prefix match\n- Find default gateway\n- Use ip route get / route get\n\nMental model for `16-routing-basics` (exercise kind `route_default`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nip -br addr; ip route; ip route get 1.1.1.1\n```\n\nSample output:\n\n```text\neth0 UP 192.168.1.20/24\ndefault via 192.168.1.1 dev eth0\n1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.20\n```\n\n**Interpretation:** `ip route get` shows the chosen route, egress device, and preferred source — gold for 'why did it leave this NIC?' questions.\n\n### Example 2\n\n```bash\nping -c 3 1.1.1.1\nss -tulpn | head\n# macOS: netstat -anv | head\n```\n\nSample output:\n\n```text\n3 packets transmitted, 3 received\nudp ... :53\ntcp LISTEN ... :22\n```\n\n**Interpretation:** ICMP OK proves basic L3; ss proves local listeners. Combine with ARP/neigh when LAN peers fail.\n\n### Example 3\n\n```bash\nip neigh show | head\nping -c 1 $(ip route | awk '/default/ {print $3; exit}')\n```\n\nSample output:\n\n```text\n192.168.1.1 dev eth0 lladdr ... REACHABLE\n64 bytes from gateway\n```\n\n**Interpretation:** Neighbor/ARP state validates L2 adjacency to the gateway before you blame the wider internet.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **Routing Tables and Default Gateways** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Two default routes without understand... | See common mistakes | Re-run lesson commands |\n| Asymmetric routing surprises | See common mistakes | Re-run lesson commands |\n| Deleting default route remotely witho... | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for Routing Tables and Default Gateways\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Two default routes without understanding metrics', 'Asymmetric routing surprises', 'Deleting default route remotely without console'],
+    ['What is 0.0.0.0/0?', 'What wins: /8 or /24?', 'Command: which route to 1.1.1.1?'],
+    ['https://man7.org/linux/man-pages/man8/ip-route.8.html'],
+    'route_default',
+    exercise_guide='Edit `exercise.sh` and implement `default_route_cidr`, `longest_prefix_wins`, `linux_route_get`. Each function is a tiny retrieval drill for **Routing Tables and Default Gateways** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `default_route_cidr` → `0.0.0.0/0`; `longest_prefix_wins` → `/24`; `linux_route_get` → `ip route get`.',
+)
+
+add(
+    17,
+    'static-dynamic-routing',
+    'Static vs Dynamic Routing Concepts',
+    P6,
+    '1–2 days',
+    ['Contrast static routes vs OSPF/BGP ideas', 'Know when static is enough', 'Explain convergence at a high level', 'Read simple BGP/OSPF vocabulary'],
+    "## Why this matters\n\nA static route 'worked until the peer renumbered'. Knowing when static is enough vs when OSPF/BGP (or cloud route propagation) must own the path prevents fragile snowflakes.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Contrast static routes vs OSPF/BGP ideas\n- Know when static is enough\n- Explain convergence at a high level\n- Read simple BGP/OSPF vocabulary\n\nMental model for `17-static-dynamic-routing` (exercise kind `routing_bgp`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nip -br addr; ip route; ip route get 1.1.1.1\n```\n\nSample output:\n\n```text\neth0 UP 192.168.1.20/24\ndefault via 192.168.1.1 dev eth0\n1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.20\n```\n\n**Interpretation:** `ip route get` shows the chosen route, egress device, and preferred source — gold for 'why did it leave this NIC?' questions.\n\n### Example 2\n\n```bash\nping -c 3 1.1.1.1\nss -tulpn | head\n# macOS: netstat -anv | head\n```\n\nSample output:\n\n```text\n3 packets transmitted, 3 received\nudp ... :53\ntcp LISTEN ... :22\n```\n\n**Interpretation:** ICMP OK proves basic L3; ss proves local listeners. Combine with ARP/neigh when LAN peers fail.\n\n### Example 3\n\n```bash\nip neigh show | head\nping -c 1 $(ip route | awk '/default/ {print $3; exit}')\n```\n\nSample output:\n\n```text\n192.168.1.1 dev eth0 lladdr ... REACHABLE\n64 bytes from gateway\n```\n\n**Interpretation:** Neighbor/ARP state validates L2 adjacency to the gateway before you blame the wider internet.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **Static vs Dynamic Routing Concepts** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Injecting static routes that fight BGP | See common mistakes | Re-run lesson commands |\n| No documentation of static routes | See common mistakes | Re-run lesson commands |\n| Assuming cloud route tables behave li... | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for Static vs Dynamic Routing Concepts\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Injecting static routes that fight BGP', 'No documentation of static routes', 'Assuming cloud route tables behave like home Wi-Fi'],
+    ['When static routes shine?', 'BGP used where?', 'What is convergence?'],
+    ['https://www.rfc-editor.org/rfc/rfc4271'],
+    'routing_bgp',
+    exercise_guide='Edit `exercise.sh` and implement `internet_routing_protocol`, `igp_example`, `operator_routes`. Each function is a tiny retrieval drill for **Static vs Dynamic Routing Concepts** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `internet_routing_protocol` → `BGP`; `igp_example` → `OSPF`; `operator_routes` → `static`.',
+)
+
+add(
+    18,
+    'nat',
+    'NAT, PAT, and Hairpinning',
+    P8,
+    '1–2 days',
+    ['Explain source NAT / PAT for internet egress', 'Understand destination NAT / port forwards', 'Spot NAT in troubleshooting', 'Know hairpin NAT issues'],
+    "## Why this matters\n\nHairpin NAT: phone on Wi-Fi cannot reach the home server via the public hostname, but LTE works. PAT/NAT behavior and loopback/hairpin expectations explain it.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Explain source NAT / PAT for internet egress\n- Understand destination NAT / port forwards\n- Spot NAT in troubleshooting\n- Know hairpin NAT issues\n\nMental model for `18-nat` (exercise kind `nat_pat`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nsudo nft list ruleset 2>/dev/null | head -40 || sudo iptables -L -n -v | head -40\n```\n\nSample output:\n\n```text\ntable inet filter {\n  chain input { type filter hook input priority filter; policy drop;\n```\n\n**Interpretation:** Default **drop/deny** on inbound is the safe posture. Counters (iptables -v) show which rule matches.\n\n### Example 2\n\n```bash\nss -tlnp | head\ncurl -sS -o /dev/null -w '%{http_code}\\n' --connect-timeout 2 http://127.0.0.1:9 || echo 'timeout/fail expected'\n```\n\nSample output:\n\n```text\nLISTEN ...\ntimeout/fail expected\n```\n\n**Interpretation:** Listeners vs policy: a service may listen yet still be unreachable remotely if SG/NACL/nft drops mid-path.\n\n### Example 3\n\n```bash\nping -c 2 -W 1 10.255.255.254 || true\n# compare to: nc -vz -w 2 host 443\n```\n\nSample output:\n\n```text\n100% packet loss\n```\n\n**Interpretation:** Silent drops often look like timeouts, not TCP RST. That distinction drives 'firewall vs app refused' decisions.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **NAT, PAT, and Hairpinning** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Exposing RDP/SSH via risky UPnP witho... | See common mistakes | Re-run lesson commands |\n| Overlapping NATed ranges in VPN merges | See common mistakes | Re-run lesson commands |\n| Assuming inbound works like outbound | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for NAT, PAT, and Hairpinning\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Exposing RDP/SSH via risky UPnP without care', 'Overlapping NATed ranges in VPN merges', 'Assuming inbound works like outbound'],
+    ['PAT means?', 'Why inbound fails by default?', 'Table name for iptables NAT?'],
+    ['https://www.rfc-editor.org/rfc/rfc3022'],
+    'nat_pat',
+    exercise_guide='Edit `exercise.sh` and implement `many_to_one_nat_name`, `hairpin_name`, `iptables_nat_table`. Each function is a tiny retrieval drill for **NAT, PAT, and Hairpinning** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `many_to_one_nat_name` → `PAT`; `hairpin_name` → `hairpin`; `iptables_nat_table` → `nat`.',
+)
+
+add(
+    19,
+    'firewall-linux',
+    'Host Firewalls: nftables, iptables, ufw',
+    P8,
+    '2 days',
+    ['List rules and policies', 'Allow least ports', 'Test with care to avoid lockout', 'Prefer high-level tools when enough'],
+    "## Why this matters\n\nFresh VM: curl works locally, remote times out. Host firewall default-drop, wrong zone, or forgotten allow for the service port — `nft`/`iptables`/`ufw` show policy, not vibes.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- List rules and policies\n- Allow least ports\n- Test with care to avoid lockout\n- Prefer high-level tools when enough\n\nMental model for `19-firewall-linux` (exercise kind `fw_default`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nsudo nft list ruleset 2>/dev/null | head -40 || sudo iptables -L -n -v | head -40\n```\n\nSample output:\n\n```text\ntable inet filter {\n  chain input { type filter hook input priority filter; policy drop;\n```\n\n**Interpretation:** Default **drop/deny** on inbound is the safe posture. Counters (iptables -v) show which rule matches.\n\n### Example 2\n\n```bash\nss -tlnp | head\ncurl -sS -o /dev/null -w '%{http_code}\\n' --connect-timeout 2 http://127.0.0.1:9 || echo 'timeout/fail expected'\n```\n\nSample output:\n\n```text\nLISTEN ...\ntimeout/fail expected\n```\n\n**Interpretation:** Listeners vs policy: a service may listen yet still be unreachable remotely if SG/NACL/nft drops mid-path.\n\n### Example 3\n\n```bash\nping -c 2 -W 1 10.255.255.254 || true\n# compare to: nc -vz -w 2 host 443\n```\n\nSample output:\n\n```text\n100% packet loss\n```\n\n**Interpretation:** Silent drops often look like timeouts, not TCP RST. That distinction drives 'firewall vs app refused' decisions.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **Host Firewalls: nftables, iptables, ufw** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Locking yourself out | See common mistakes | Re-run lesson commands |\n| Disabling firewall instead of opening... | See common mistakes | Re-run lesson commands |\n| Forgetting IPv6 (`ip6tables`/`ufw`) | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for Host Firewalls: nftables, iptables, ufw\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Locking yourself out', 'Disabling firewall instead of opening one port', 'Forgetting IPv6 (`ip6tables`/`ufw`)'],
+    ['ufw allow SSH command idea?', 'Why console access?', 'nft list command?'],
+    ['https://wiki.nftables.org/'],
+    'fw_default',
+    exercise_guide='Edit `exercise.sh` and implement `safe_default_inbound`, `linux_fw_modern`, `ubuntu_fw_frontend`. Each function is a tiny retrieval drill for **Host Firewalls: nftables, iptables, ufw** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `safe_default_inbound` → `deny`; `linux_fw_modern` → `nftables`; `ubuntu_fw_frontend` → `ufw`.',
+)
+
+add(
+    20,
+    'tcpdump-basics',
+    'tcpdump Basics for Engineers',
+    P11,
+    '2 days',
+    ['Capture with filters', 'Write/read pcap files', 'Read flags and ports', 'Minimize capture blast radius'],
+    "## Why this matters\n\nMetrics say error rate up; app logs are clean. A 30-second `tcpdump` with a tight BPF often shows RSTs, retransmits, or the wrong VIP before you guess.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Capture with filters\n- Write/read pcap files\n- Read flags and ports\n- Minimize capture blast radius\n\nMental model for `20-tcpdump-basics` (exercise kind `tcpdump_port`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nsudo tcpdump -ni any -c 5 udp port 53\n```\n\nSample output:\n\n```text\n12:01:01.1 IP 10.0.0.5.53122 > 1.1.1.1.53: UDP, length 32\n12:01:01.2 IP 1.1.1.1.53 > 10.0.0.5.53122: UDP, length 48\n```\n\n**Interpretation:** BPF `port 53` captures DNS. Direction and lengths hint query vs response. Always capture only systems you may test.\n\n### Example 2\n\n```bash\nsudo tcpdump -ni any -c 8 'tcp port 443 and (tcp[tcpflags] & tcp-syn != 0)'\n```\n\nSample output:\n\n```text\n... Flags [S], ...\n... Flags [S.], ...\n```\n\n**Interpretation:** SYN and SYN-ACK prove handshake progress. SYN with no reply suggests drop/filter/blackhole along the path.\n\n### Example 3\n\n```bash\ntshark -r /tmp/lab.pcap -Y 'dns' -c 5 2>/dev/null || echo 'save a pcap first: sudo tcpdump -w /tmp/lab.pcap -c 20 port 53'\n```\n\nSample output:\n\n```text\n1 0.000000 10.0.0.5 → 1.1.1.1 DNS 74 Standard query A example.com\n```\n\n**Interpretation:** Display filters (`-Y`) slice a saved capture without re-running traffic — safer on busy hosts.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **tcpdump Basics for Engineers** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Capturing on prod without policy | See common mistakes | Re-run lesson commands |\n| Huge unfiltered captures filling disks | See common mistakes | Re-run lesson commands |\n| Sniffing secrets on shared networks | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for tcpdump Basics for Engineers\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Capturing on prod without policy', 'Huge unfiltered captures filling disks', 'Sniffing secrets on shared networks'],
+    ['Filter for DNS?', 'Flag to write pcap?', 'Read pcap without capture?'],
+    ['https://www.tcpdump.org/manpages/tcpdump.1.html'],
+    'tcpdump_port',
+    exercise_guide='Edit `exercise.sh` and implement `tcpdump_dns_filter`, `tcpdump_numeric_flag`, `tcpdump_write_flag`. Each function is a tiny retrieval drill for **tcpdump Basics for Engineers** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `tcpdump_dns_filter` → `port 53`; `tcpdump_numeric_flag` → `-n`; `tcpdump_write_flag` → `-w`.',
+)
+
+add(
+    21,
+    'wireshark-flow',
+    'Reading Flows: Wireshark/tshark Essentials',
+    P11,
+    '1–2 days',
+    ['Open pcaps in Wireshark/tshark', 'Follow TCP streams', 'Apply display filters', 'Export objects carefully'],
+    "## Why this matters\n\npcap in hand, chaos in the UI. Follow TCP streams, decode TLS to the point you are allowed, and filter noise — Wireshark/tshark turn bytes into a story.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Open pcaps in Wireshark/tshark\n- Follow TCP streams\n- Apply display filters\n- Export objects carefully\n\nMental model for `21-wireshark-flow` (exercise kind `tshark_dns`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nsudo tcpdump -ni any -c 5 udp port 53\n```\n\nSample output:\n\n```text\n12:01:01.1 IP 10.0.0.5.53122 > 1.1.1.1.53: UDP, length 32\n12:01:01.2 IP 1.1.1.1.53 > 10.0.0.5.53122: UDP, length 48\n```\n\n**Interpretation:** BPF `port 53` captures DNS. Direction and lengths hint query vs response. Always capture only systems you may test.\n\n### Example 2\n\n```bash\nsudo tcpdump -ni any -c 8 'tcp port 443 and (tcp[tcpflags] & tcp-syn != 0)'\n```\n\nSample output:\n\n```text\n... Flags [S], ...\n... Flags [S.], ...\n```\n\n**Interpretation:** SYN and SYN-ACK prove handshake progress. SYN with no reply suggests drop/filter/blackhole along the path.\n\n### Example 3\n\n```bash\ntshark -r /tmp/lab.pcap -Y 'dns' -c 5 2>/dev/null || echo 'save a pcap first: sudo tcpdump -w /tmp/lab.pcap -c 20 port 53'\n```\n\nSample output:\n\n```text\n1 0.000000 10.0.0.5 → 1.1.1.1 DNS 74 Standard query A example.com\n```\n\n**Interpretation:** Display filters (`-Y`) slice a saved capture without re-running traffic — safer on busy hosts.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **Reading Flows: Wireshark/tshark Essentials** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Assuming encrypted payloads are reada... | See common mistakes | Re-run lesson commands |\n| Over-trusting reassembly on packet loss | See common mistakes | Re-run lesson commands |\n| Sharing pcaps with secrets | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for Reading Flows: Wireshark/tshark Essentials\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Assuming encrypted payloads are readable', 'Over-trusting reassembly on packet loss', 'Sharing pcaps with secrets'],
+    ['Follow TCP stream purpose?', 'tshark -Y meaning?', 'Filter for DNS errors idea?'],
+    ['https://www.wireshark.org/docs/'],
+    'tshark_dns',
+    exercise_guide='Edit `exercise.sh` and implement `tshark_display_filter_flag`, `tshark_read_flag`, `packet_gui_tool`. Each function is a tiny retrieval drill for **Reading Flows: Wireshark/tshark Essentials** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `tshark_display_filter_flag` → `-Y`; `tshark_read_flag` → `-r`; `packet_gui_tool` → `wireshark`.',
+)
+
+add(
+    22,
+    'dhcp',
+    'DHCP and Address Assignment',
+    P7,
+    '1 day',
+    ['Explain Discover/Offer/Request/Ack', 'Inspect leases', "Debug 'got 169.254'", 'Know static vs DHCP tradeoffs'],
+    "## Why this matters\n\nLaptop has an APIPA/link-local address and no default route. DHCP discover/offer/request/ack failed — lease, relay, or server scope issues.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Explain Discover/Offer/Request/Ack\n- Inspect leases\n- Debug 'got 169.254'\n- Know static vs DHCP tradeoffs\n\nMental model for `22-dhcp` (exercise kind `dhcp_apipa`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nip -br addr; ip route; ip route get 1.1.1.1\n```\n\nSample output:\n\n```text\neth0 UP 192.168.1.20/24\ndefault via 192.168.1.1 dev eth0\n1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.20\n```\n\n**Interpretation:** `ip route get` shows the chosen route, egress device, and preferred source — gold for 'why did it leave this NIC?' questions.\n\n### Example 2\n\n```bash\nping -c 3 1.1.1.1\nss -tulpn | head\n# macOS: netstat -anv | head\n```\n\nSample output:\n\n```text\n3 packets transmitted, 3 received\nudp ... :53\ntcp LISTEN ... :22\n```\n\n**Interpretation:** ICMP OK proves basic L3; ss proves local listeners. Combine with ARP/neigh when LAN peers fail.\n\n### Example 3\n\n```bash\nip neigh show | head\nping -c 1 $(ip route | awk '/default/ {print $3; exit}')\n```\n\nSample output:\n\n```text\n192.168.1.1 dev eth0 lladdr ... REACHABLE\n64 bytes from gateway\n```\n\n**Interpretation:** Neighbor/ARP state validates L2 adjacency to the gateway before you blame the wider internet.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **DHCP and Address Assignment** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Two DHCP servers fighting on a LAN | See common mistakes | Re-run lesson commands |\n| Tiny pools exhausting leases | See common mistakes | Re-run lesson commands |\n| Static IP colliding with DHCP pool | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for DHCP and Address Assignment\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Two DHCP servers fighting on a LAN', 'Tiny pools exhausting leases', 'Static IP colliding with DHCP pool'],
+    ['DORA steps?', 'What does 169.254 suggest?', 'DHCP vs static when?'],
+    ['https://www.rfc-editor.org/rfc/rfc2131'],
+    'dhcp_apipa',
+    exercise_guide='Edit `exercise.sh` and implement `dhcp_fail_prefix`, `addr_assign_proto`, `ipv6_autoconfig`. Each function is a tiny retrieval drill for **DHCP and Address Assignment** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `dhcp_fail_prefix` → `169.254`; `addr_assign_proto` → `DHCP`; `ipv6_autoconfig` → `SLAAC`.',
+)
+
+add(
+    23,
+    'vlans',
+    'VLANs and Trunking Concepts',
+    P7,
+    '1–2 days',
+    ['Explain VLAN segmentation', 'Understand access vs trunk ports', 'Know 802.1Q tagging idea', 'See VLAN subinterfaces on Linux'],
+    "## Why this matters\n\nSame switch, 'can't ping' — different VLANs. Trunks, access ports, and tagged frames are why L2 adjacency is not guaranteed by a shared chassis.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Explain VLAN segmentation\n- Understand access vs trunk ports\n- Know 802.1Q tagging idea\n- See VLAN subinterfaces on Linux\n\nMental model for `23-vlans` (exercise kind `vlan_tag`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nip -br addr; ip route; ip route get 1.1.1.1\n```\n\nSample output:\n\n```text\neth0 UP 192.168.1.20/24\ndefault via 192.168.1.1 dev eth0\n1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.20\n```\n\n**Interpretation:** `ip route get` shows the chosen route, egress device, and preferred source — gold for 'why did it leave this NIC?' questions.\n\n### Example 2\n\n```bash\nping -c 3 1.1.1.1\nss -tulpn | head\n# macOS: netstat -anv | head\n```\n\nSample output:\n\n```text\n3 packets transmitted, 3 received\nudp ... :53\ntcp LISTEN ... :22\n```\n\n**Interpretation:** ICMP OK proves basic L3; ss proves local listeners. Combine with ARP/neigh when LAN peers fail.\n\n### Example 3\n\n```bash\nip neigh show | head\nping -c 1 $(ip route | awk '/default/ {print $3; exit}')\n```\n\nSample output:\n\n```text\n192.168.1.1 dev eth0 lladdr ... REACHABLE\n64 bytes from gateway\n```\n\n**Interpretation:** Neighbor/ARP state validates L2 adjacency to the gateway before you blame the wider internet.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **VLANs and Trunking Concepts** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Using VLANs as only security control | See common mistakes | Re-run lesson commands |\n| Native VLAN mismatches | See common mistakes | Re-run lesson commands |\n| Overlapping IP plans across VLANs wit... | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for VLANs and Trunking Concepts\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Using VLANs as only security control', 'Native VLAN mismatches', 'Overlapping IP plans across VLANs without routing'],
+    ['Access vs trunk?', '802.1Q does what?', 'Do VLANs encrypt?'],
+    ['https://www.rfc-editor.org/rfc/rfc3069'],
+    'vlan_tag',
+    exercise_guide='Edit `exercise.sh` and implement `vlan_tag_standard`, `multi_vlan_port`, `l2_segment_feature`. Each function is a tiny retrieval drill for **VLANs and Trunking Concepts** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `vlan_tag_standard` → `802.1Q`; `multi_vlan_port` → `trunk`; `l2_segment_feature` → `VLAN`.',
+)
+
+add(
+    24,
+    'vpn-basics',
+    'VPN Basics: IPsec, WireGuard, OpenVPN',
+    P9,
+    '2 days',
+    ['Contrast VPN types at a high level', 'Read WireGuard quick configs conceptually', 'Troubleshoot VPN DNS and routes', 'Watch MTU/overhead issues'],
+    "## Why this matters\n\nCorp VPN connects but SaaS apps hang. Tunnel type (WireGuard/IPsec/OpenVPN), split tunnel, and MTU interact; VPN literacy prevents 'disable VPN' as the only fix.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Contrast VPN types at a high level\n- Read WireGuard quick configs conceptually\n- Troubleshoot VPN DNS and routes\n- Watch MTU/overhead issues\n\nMental model for `24-vpn-basics` (exercise kind `vpn_mtu`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nip -br link; ip route | head\n# After VPN up, compare default route and MTU\n```\n\nSample output:\n\n```text\nwg0 UP ...\ndefault via 10.10.0.1 dev wg0\nmtu 1420\n```\n\n**Interpretation:** Tunnels add outer headers → lower effective MTU. Blackhole PMTUD is a classic VPN failure mode.\n\n### Example 2\n\n```bash\nping -c 2 -M do -s 1472 1.1.1.1 2>&1 | head -5 || ping -c 2 -D -s 1472 1.1.1.1 2>&1 | head -5\n```\n\nSample output:\n\n```text\nFrag needed / Message too long / 100% loss\n```\n\n**Interpretation:** Large DF probes failing after VPN connect points to MTU/MSS issues — lower MSS/MTU or fix ICMP PTB.\n\n### Example 3\n\n```bash\nssh -N -L 8080:127.0.0.1:80 user@bastion  # example local forward (lab)\necho 'local forward uses -L; remote -R; dynamic -D'\n```\n\nSample output:\n\n```text\n(ssh holds open; curl localhost:8080 hits remote :80)\n```\n\n**Interpretation:** SSH forwards are tactical tunnels. Know `-L` vs `-R` direction before debugging 'connection refused' on the wrong host.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **VPN Basics: IPsec, WireGuard, OpenVPN** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Full-tunnel VPN without need (hairpin... | See common mistakes | Re-run lesson commands |\n| Split tunnel missing critical routes | See common mistakes | Re-run lesson commands |\n| Ignoring MTU | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for VPN Basics: IPsec, WireGuard, OpenVPN\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Full-tunnel VPN without need (hairpin pain)', 'Split tunnel missing critical routes', 'Ignoring MTU'],
+    ['WireGuard show command?', 'Typical WG port?', 'Why MTU drops with VPN?'],
+    ['https://www.wireguard.com/'],
+    'vpn_mtu',
+    exercise_guide='Edit `exercise.sh` and implement `vpn_often_lowers`, `modern_vpn_example`, `classic_vpn_suite`. Each function is a tiny retrieval drill for **VPN Basics: IPsec, WireGuard, OpenVPN** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `vpn_often_lowers` → `MTU`; `modern_vpn_example` → `WireGuard`; `classic_vpn_suite` → `IPsec`.',
+)
+
+add(
+    25,
+    'ssh-tunnels',
+    'SSH Tunnels and Port Forwards',
+    P9,
+    '1–2 days',
+    ['Use local/remote/dynamic SSH forwards', 'Access private admin UIs safely', 'Avoid standing tunnels forever without need', 'Combine with ProxyJump'],
+    "## Why this matters\n\nNeed a DB on a private host via bastion for five minutes. SSH `-L`/`-R`/`-D` is the tactical tunnel — wrong direction is the usual bug.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Use local/remote/dynamic SSH forwards\n- Access private admin UIs safely\n- Avoid standing tunnels forever without need\n- Combine with ProxyJump\n\nMental model for `25-ssh-tunnels` (exercise kind `ssh_L`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nip -br link; ip route | head\n# After VPN up, compare default route and MTU\n```\n\nSample output:\n\n```text\nwg0 UP ...\ndefault via 10.10.0.1 dev wg0\nmtu 1420\n```\n\n**Interpretation:** Tunnels add outer headers → lower effective MTU. Blackhole PMTUD is a classic VPN failure mode.\n\n### Example 2\n\n```bash\nping -c 2 -M do -s 1472 1.1.1.1 2>&1 | head -5 || ping -c 2 -D -s 1472 1.1.1.1 2>&1 | head -5\n```\n\nSample output:\n\n```text\nFrag needed / Message too long / 100% loss\n```\n\n**Interpretation:** Large DF probes failing after VPN connect points to MTU/MSS issues — lower MSS/MTU or fix ICMP PTB.\n\n### Example 3\n\n```bash\nssh -N -L 8080:127.0.0.1:80 user@bastion  # example local forward (lab)\necho 'local forward uses -L; remote -R; dynamic -D'\n```\n\nSample output:\n\n```text\n(ssh holds open; curl localhost:8080 hits remote :80)\n```\n\n**Interpretation:** SSH forwards are tactical tunnels. Know `-L` vs `-R` direction before debugging 'connection refused' on the wrong host.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **SSH Tunnels and Port Forwards** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Exposing binds on 0.0.0.0 unintention... | See common mistakes | Re-run lesson commands |\n| Long-lived tunnels as permanent VPN s... | See common mistakes | Re-run lesson commands |\n| Forgetting ExitOnForwardFailure | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for SSH Tunnels and Port Forwards\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Exposing binds on 0.0.0.0 unintentionally', 'Long-lived tunnels as permanent VPN substitute without review', 'Forgetting ExitOnForwardFailure'],
+    ['-L meaning?', '-D meaning?', 'ProxyJump purpose?'],
+    ['https://man.openbsd.org/ssh'],
+    'ssh_L',
+    exercise_guide='Edit `exercise.sh` and implement `ssh_local_forward_flag`, `ssh_remote_forward_flag`, `ssh_dynamic_flag`. Each function is a tiny retrieval drill for **SSH Tunnels and Port Forwards** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `ssh_local_forward_flag` → `-L`; `ssh_remote_forward_flag` → `-R`; `ssh_dynamic_flag` → `-D`.',
+)
+
+add(
+    26,
+    'load-balancing',
+    'Load Balancing Concepts and Health Checks',
+    P10,
+    '1–2 days',
+    ['Explain L4 vs L7 balancing', 'Know health checks and draining', 'Recognize algorithms (round-robin, least-conn)', 'See nginx upstream basics'],
+    "## Why this matters\n\nOne backend is sick but still in pool; 1/N users fail. Health checks, idle timeouts, and L4 vs L7 balancing decide whether you drain or page.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Explain L4 vs L7 balancing\n- Know health checks and draining\n- Recognize algorithms (round-robin, least-conn)\n- See nginx upstream basics\n\nMental model for `26-load-balancing` (exercise kind `lb_l4l7`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\ncurl -I https://example.com 2>&1 | head -15\n```\n\nSample output:\n\n```text\nHTTP/2 200\ncontent-type: text/html\ncache-control: max-age=...\n```\n\n**Interpretation:** Response line and headers are L7 evidence after TCP/TLS succeeded.\n\n### Example 2\n\n```bash\ncurl -sS -o /dev/null -w 'code=%{http_code} ttfb=%{time_starttransfer} total=%{time_total} ver=%{http_version}\\n' https://example.com\n```\n\nSample output:\n\n```text\ncode=200 ttfb=0.120 total=0.180 ver=2\n```\n\n**Interpretation:** Write-out metrics separate connect delay from first-byte and total time — essential for gateway/CDN debates.\n\n### Example 3\n\n```bash\necho | openssl s_client -connect example.com:443 -servername example.com 2>/dev/null | openssl x509 -noout -subject -dates\n```\n\nSample output:\n\n```text\nsubject=CN = example.com\nnotBefore=...\nnotAfter=...\n```\n\n**Interpretation:** Certificate identity and expiry are independent of HTTP 200. SNI (`-servername`) selects the cert on shared IPs.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **Load Balancing Concepts and Health Checks** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| No health checks | See common mistakes | Re-run lesson commands |\n| Balancing without shared session stra... | See common mistakes | Re-run lesson commands |\n| Draining ignored during deploys | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for Load Balancing Concepts and Health Checks\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['No health checks', 'Balancing without shared session strategy when needed', 'Draining ignored during deploys'],
+    ['L4 vs L7?', 'Why health checks?', 'What is draining?'],
+    ['https://nginx.org/en/docs/http/load_balancing.html'],
+    'lb_l4l7',
+    exercise_guide='Edit `exercise.sh` and implement `http_path_balancing_layer`, `port_only_balancing_layer`, `backend_probe_name`. Each function is a tiny retrieval drill for **Load Balancing Concepts and Health Checks** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `http_path_balancing_layer` → `L7`; `port_only_balancing_layer` → `L4`; `backend_probe_name` → `health-check`.',
+)
+
+add(
+    27,
+    'reverse-proxy',
+    'Reverse Proxies: TLS Termination and Headers',
+    P10,
+    '1–2 days',
+    ['Terminate TLS at proxy', 'Pass X-Forwarded-* carefully', 'Preserve client IP with real_ip', 'Log correctly'],
+    "## Why this matters\n\nApp sees client IP as the proxy. `X-Forwarded-For` / `X-Real-IP` trust boundaries and TLS termination location are reverse-proxy essentials.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Terminate TLS at proxy\n- Pass X-Forwarded-* carefully\n- Preserve client IP with real_ip\n- Log correctly\n\nMental model for `27-reverse-proxy` (exercise kind `xff_trust`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\ncurl -I https://example.com 2>&1 | head -15\n```\n\nSample output:\n\n```text\nHTTP/2 200\ncontent-type: text/html\ncache-control: max-age=...\n```\n\n**Interpretation:** Response line and headers are L7 evidence after TCP/TLS succeeded.\n\n### Example 2\n\n```bash\ncurl -sS -o /dev/null -w 'code=%{http_code} ttfb=%{time_starttransfer} total=%{time_total} ver=%{http_version}\\n' https://example.com\n```\n\nSample output:\n\n```text\ncode=200 ttfb=0.120 total=0.180 ver=2\n```\n\n**Interpretation:** Write-out metrics separate connect delay from first-byte and total time — essential for gateway/CDN debates.\n\n### Example 3\n\n```bash\necho | openssl s_client -connect example.com:443 -servername example.com 2>/dev/null | openssl x509 -noout -subject -dates\n```\n\nSample output:\n\n```text\nsubject=CN = example.com\nnotBefore=...\nnotAfter=...\n```\n\n**Interpretation:** Certificate identity and expiry are independent of HTTP 200. SNI (`-servername`) selects the cert on shared IPs.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **Reverse Proxies: TLS Termination and Headers** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Trusting XFF from the internet | See common mistakes | Re-run lesson commands |\n| Mixed content / wrong redirect schemes | See common mistakes | Re-run lesson commands |\n| Huge header sizes without limits | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for Reverse Proxies: TLS Termination and Headers\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Trusting XFF from the internet', 'Mixed content / wrong redirect schemes', 'Huge header sizes without limits'],
+    ['TLS termination meaning?', 'Why not trust XFF blindly?', 'real_ip purpose?'],
+    ['https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-For'],
+    'xff_trust',
+    exercise_guide='Edit `exercise.sh` and implement `xff_trust_from`, `tls_edge_role`, `proto_forward_header`. Each function is a tiny retrieval drill for **Reverse Proxies: TLS Termination and Headers** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `xff_trust_from` → `trusted-proxies-only`; `tls_edge_role` → `TLS-termination`; `proto_forward_header` → `X-Forwarded-Proto`.',
+)
+
+add(
+    28,
+    'http2-quic',
+    'HTTP/2, HTTP/3, and QUIC Awareness',
+    P5,
+    '1 day',
+    ['Know why HTTP/2 multiplexes', 'Understand QUIC runs on UDP', 'Probe protocol with curl', 'Relate to CDNs'],
+    "## Why this matters\n\nCDN serves HTTP/3; corporate firewall UDP/443 is blocked. HTTP/2 multiplexing vs QUIC changes middlebox behavior — awareness prevents false 'site down' reports.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Know why HTTP/2 multiplexes\n- Understand QUIC runs on UDP\n- Probe protocol with curl\n- Relate to CDNs\n\nMental model for `28-http2-quic` (exercise kind `http_version`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\ncurl -I https://example.com 2>&1 | head -15\n```\n\nSample output:\n\n```text\nHTTP/2 200\ncontent-type: text/html\ncache-control: max-age=...\n```\n\n**Interpretation:** Response line and headers are L7 evidence after TCP/TLS succeeded.\n\n### Example 2\n\n```bash\ncurl -sS -o /dev/null -w 'code=%{http_code} ttfb=%{time_starttransfer} total=%{time_total} ver=%{http_version}\\n' https://example.com\n```\n\nSample output:\n\n```text\ncode=200 ttfb=0.120 total=0.180 ver=2\n```\n\n**Interpretation:** Write-out metrics separate connect delay from first-byte and total time — essential for gateway/CDN debates.\n\n### Example 3\n\n```bash\necho | openssl s_client -connect example.com:443 -servername example.com 2>/dev/null | openssl x509 -noout -subject -dates\n```\n\nSample output:\n\n```text\nsubject=CN = example.com\nnotBefore=...\nnotAfter=...\n```\n\n**Interpretation:** Certificate identity and expiry are independent of HTTP 200. SNI (`-servername`) selects the cert on shared IPs.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **HTTP/2, HTTP/3, and QUIC Awareness** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Assuming HTTP/3 always faster | See common mistakes | Re-run lesson commands |\n| Blocking UDP 443 enterprise-wide acci... | See common mistakes | Re-run lesson commands |\n| Ignoring fallback to TCP | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for HTTP/2, HTTP/3, and QUIC Awareness\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Assuming HTTP/3 always faster', 'Blocking UDP 443 enterprise-wide accidentally', 'Ignoring fallback to TCP'],
+    ['HTTP/2 main benefit?', 'QUIC transport?', 'curl write-out for version?'],
+    ['https://www.rfc-editor.org/rfc/rfc9114'],
+    'http_version',
+    exercise_guide='Edit `exercise.sh` and implement `curl_http_version_writeout`, `http3_transport`, `http3_udp_port`. Each function is a tiny retrieval drill for **HTTP/2, HTTP/3, and QUIC Awareness** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `curl_http_version_writeout` → `%{http_version}`; `http3_transport` → `QUIC`; `http3_udp_port` → `443`.',
+)
+
+add(
+    29,
+    'cdn-caching',
+    'CDNs, Caching, and Cache Headers',
+    P10,
+    '1–2 days',
+    ['Read Cache-Control/ETag/Age', 'Differentiate CDN edge vs origin issues', 'Purge/invalidate conceptually', 'Debug with response headers'],
+    "## Why this matters\n\nPurge didn't purge. Cache-Control, Vary, and which layer cached (browser vs CDN vs origin) explain ghost content.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Read Cache-Control/ETag/Age\n- Differentiate CDN edge vs origin issues\n- Purge/invalidate conceptually\n- Debug with response headers\n\nMental model for `29-cdn-caching` (exercise kind `cache_control`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\ncurl -I https://example.com 2>&1 | head -15\n```\n\nSample output:\n\n```text\nHTTP/2 200\ncontent-type: text/html\ncache-control: max-age=...\n```\n\n**Interpretation:** Response line and headers are L7 evidence after TCP/TLS succeeded.\n\n### Example 2\n\n```bash\ncurl -sS -o /dev/null -w 'code=%{http_code} ttfb=%{time_starttransfer} total=%{time_total} ver=%{http_version}\\n' https://example.com\n```\n\nSample output:\n\n```text\ncode=200 ttfb=0.120 total=0.180 ver=2\n```\n\n**Interpretation:** Write-out metrics separate connect delay from first-byte and total time — essential for gateway/CDN debates.\n\n### Example 3\n\n```bash\necho | openssl s_client -connect example.com:443 -servername example.com 2>/dev/null | openssl x509 -noout -subject -dates\n```\n\nSample output:\n\n```text\nsubject=CN = example.com\nnotBefore=...\nnotAfter=...\n```\n\n**Interpretation:** Certificate identity and expiry are independent of HTTP 200. SNI (`-servername`) selects the cert on shared IPs.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **CDNs, Caching, and Cache Headers** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Caching personalized/private response... | See common mistakes | Re-run lesson commands |\n| No versioning of static assets | See common mistakes | Re-run lesson commands |\n| Purging entire site for one file habi... | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for CDNs, Caching, and Cache Headers\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Caching personalized/private responses publicly', 'No versioning of static assets', 'Purging entire site for one file habitually'],
+    ['Age header meaning?', 'Why asset fingerprinting?', 'Private vs public cache?'],
+    ['https://www.rfc-editor.org/rfc/rfc9111'],
+    'cache_control',
+    exercise_guide='Edit `exercise.sh` and implement `header_for_caching`, `cdn_role`, `cache_validator_header`. Each function is a tiny retrieval drill for **CDNs, Caching, and Cache Headers** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `header_for_caching` → `Cache-Control`; `cdn_role` → `cache`; `cache_validator_header` → `ETag`.',
+)
+
+add(
+    30,
+    'qos-traffic',
+    'Latency, Bandwidth, Loss, and QoS Basics',
+    P11,
+    '1–2 days',
+    ['Separate latency vs bandwidth problems', 'Measure with simple tools', 'Explain bufferbloat idea', 'Know QoS is policy + queuing'],
+    "## Why this matters\n\nLink is '1 Gbps' but app SLO is latency. Bandwidth vs latency vs loss vs jitter — and crude QoS expectations — change which knob you turn.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Separate latency vs bandwidth problems\n- Measure with simple tools\n- Explain bufferbloat idea\n- Know QoS is policy + queuing\n\nMental model for `30-qos-traffic` (exercise kind `curl_timing`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nip -br addr; ip route; ip route get 1.1.1.1\n```\n\nSample output:\n\n```text\neth0 UP 192.168.1.20/24\ndefault via 192.168.1.1 dev eth0\n1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.20\n```\n\n**Interpretation:** `ip route get` shows the chosen route, egress device, and preferred source — gold for 'why did it leave this NIC?' questions.\n\n### Example 2\n\n```bash\nping -c 3 1.1.1.1\nss -tulpn | head\n# macOS: netstat -anv | head\n```\n\nSample output:\n\n```text\n3 packets transmitted, 3 received\nudp ... :53\ntcp LISTEN ... :22\n```\n\n**Interpretation:** ICMP OK proves basic L3; ss proves local listeners. Combine with ARP/neigh when LAN peers fail.\n\n### Example 3\n\n```bash\nip neigh show | head\nping -c 1 $(ip route | awk '/default/ {print $3; exit}')\n```\n\nSample output:\n\n```text\n192.168.1.1 dev eth0 lladdr ... REACHABLE\n64 bytes from gateway\n```\n\n**Interpretation:** Neighbor/ARP state validates L2 adjacency to the gateway before you blame the wider internet.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **Latency, Bandwidth, Loss, and QoS Basics** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Buying more bandwidth for a latency-b... | See common mistakes | Re-run lesson commands |\n| Ignoring Wi-Fi interference | See common mistakes | Re-run lesson commands |\n| No baseline metrics | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for Latency, Bandwidth, Loss, and QoS Basics\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Buying more bandwidth for a latency-bound app', 'Ignoring Wi-Fi interference', 'No baseline metrics'],
+    ['TTFB meaning?', 'ping measures what?', "Bandwidth fix won't help when?"],
+    ['https://www.bufferbloat.net/projects/'],
+    'curl_timing',
+    exercise_guide='Edit `exercise.sh` and implement `curl_ttfb_var`, `curl_dns_time_var`, `latency_summary_stat`. Each function is a tiny retrieval drill for **Latency, Bandwidth, Loss, and QoS Basics** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `curl_ttfb_var` → `%{time_starttransfer}`; `curl_dns_time_var` → `%{time_namelookup}`; `latency_summary_stat` → `percentiles`.',
+)
+
+add(
+    31,
+    'nmap-basics',
+    'Scanning Basics with nmap (Lab Only)',
+    P11,
+    '1–2 days',
+    ['Scan ports ethically in labs', 'Interpret open/closed/filtered', 'Use service version detection carefully', 'Never scan without authorization'],
+    "## Why this matters\n\nInventory a lab VLAN you own. nmap is a permission-bound tool: scope, rate, and interpreting open/filtered/closed without turning it into an outage.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Scan ports ethically in labs\n- Interpret open/closed/filtered\n- Use service version detection carefully\n- Never scan without authorization\n\nMental model for `31-nmap-basics` (exercise kind `nmap_auth`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nsudo tcpdump -ni any -c 5 udp port 53\n```\n\nSample output:\n\n```text\n12:01:01.1 IP 10.0.0.5.53122 > 1.1.1.1.53: UDP, length 32\n12:01:01.2 IP 1.1.1.1.53 > 10.0.0.5.53122: UDP, length 48\n```\n\n**Interpretation:** BPF `port 53` captures DNS. Direction and lengths hint query vs response. Always capture only systems you may test.\n\n### Example 2\n\n```bash\nsudo tcpdump -ni any -c 8 'tcp port 443 and (tcp[tcpflags] & tcp-syn != 0)'\n```\n\nSample output:\n\n```text\n... Flags [S], ...\n... Flags [S.], ...\n```\n\n**Interpretation:** SYN and SYN-ACK prove handshake progress. SYN with no reply suggests drop/filter/blackhole along the path.\n\n### Example 3\n\n```bash\ntshark -r /tmp/lab.pcap -Y 'dns' -c 5 2>/dev/null || echo 'save a pcap first: sudo tcpdump -w /tmp/lab.pcap -c 20 port 53'\n```\n\nSample output:\n\n```text\n1 0.000000 10.0.0.5 → 1.1.1.1 DNS 74 Standard query A example.com\n```\n\n**Interpretation:** Display filters (`-Y`) slice a saved capture without re-running traffic — safer on busy hosts.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **Scanning Basics with nmap (Lab Only)** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Scanning the internet 'for practice' | See common mistakes | Re-run lesson commands |\n| Aggressive scans on fragile devices | See common mistakes | Re-run lesson commands |\n| Ignoring legal/ToS boundaries | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for Scanning Basics with nmap (Lab Only)\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ["Scanning the internet 'for practice'", 'Aggressive scans on fragile devices', 'Ignoring legal/ToS boundaries'],
+    ['When is scanning legal?', 'open vs filtered?', '-sV meaning?'],
+    ['https://nmap.org/book/man.html'],
+    'nmap_auth',
+    exercise_guide='Edit `exercise.sh` and implement `nmap_requires`, `nmap_syn_flag`, `nmap_version_flag`. Each function is a tiny retrieval drill for **Scanning Basics with nmap (Lab Only)** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `nmap_requires` → `authorization`; `nmap_syn_flag` → `-sS`; `nmap_version_flag` → `-sV`.',
+)
+
+add(
+    32,
+    'bgp-internet',
+    'How the Internet Routes: BGP at a Glance',
+    P6,
+    '1–2 days',
+    ['Explain ASNs and prefixes', 'Understand announcements/withdrawals', 'Use looking glasses / whois / bgp tools', 'Know why leaks/hijacks matter'],
+    "## Why this matters\n\nTraffic to a partner AS takes a scenic route. BGP is how the Internet chooses paths — enough theory to read a traceroute and a looking glass without pretending to be a NOC.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Explain ASNs and prefixes\n- Understand announcements/withdrawals\n- Use looking glasses / whois / bgp tools\n- Know why leaks/hijacks matter\n\nMental model for `32-bgp-internet` (exercise kind `asn_quiz`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nip -br addr; ip route; ip route get 1.1.1.1\n```\n\nSample output:\n\n```text\neth0 UP 192.168.1.20/24\ndefault via 192.168.1.1 dev eth0\n1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.20\n```\n\n**Interpretation:** `ip route get` shows the chosen route, egress device, and preferred source — gold for 'why did it leave this NIC?' questions.\n\n### Example 2\n\n```bash\nping -c 3 1.1.1.1\nss -tulpn | head\n# macOS: netstat -anv | head\n```\n\nSample output:\n\n```text\n3 packets transmitted, 3 received\nudp ... :53\ntcp LISTEN ... :22\n```\n\n**Interpretation:** ICMP OK proves basic L3; ss proves local listeners. Combine with ARP/neigh when LAN peers fail.\n\n### Example 3\n\n```bash\nip neigh show | head\nping -c 1 $(ip route | awk '/default/ {print $3; exit}')\n```\n\nSample output:\n\n```text\n192.168.1.1 dev eth0 lladdr ... REACHABLE\n64 bytes from gateway\n```\n\n**Interpretation:** Neighbor/ARP state validates L2 adjacency to the gateway before you blame the wider internet.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **How the Internet Routes: BGP at a Glance** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Thinking traceroute equals BGP path a... | See common mistakes | Re-run lesson commands |\n| Ignoring prefix ownership | See common mistakes | Re-run lesson commands |\n| Lab experiments on real upstreams | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for How the Internet Routes: BGP at a Glance\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Thinking traceroute equals BGP path always', 'Ignoring prefix ownership', 'Lab experiments on real upstreams'],
+    ['What is an ASN?', 'What does whois help show?', 'Why RPKI?'],
+    ['https://www.rfc-editor.org/rfc/rfc4271'],
+    'asn_quiz',
+    exercise_guide='Edit `exercise.sh` and implement `asn_means`, `as_route_protocol`, `ip_block_name`. Each function is a tiny retrieval drill for **How the Internet Routes: BGP at a Glance** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `asn_means` → `autonomous-system-number`; `as_route_protocol` → `BGP`; `ip_block_name` → `prefixes`.',
+)
+
+add(
+    33,
+    'anycast-dns-cdn',
+    'Anycast, GeoDNS, and Global Traffic',
+    P10,
+    '1 day',
+    ['Explain anycast routing idea', 'Contrast with unicast', 'Relate to DNS/CDN POPs', 'Debug geo differences'],
+    "## Why this matters\n\nUsers in APAC hit the US origin. Anycast DNS/CDN and GeoDNS are how global traffic steers — and how stale DNS fights you.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Explain anycast routing idea\n- Contrast with unicast\n- Relate to DNS/CDN POPs\n- Debug geo differences\n\nMental model for `33-anycast-dns-cdn` (exercise kind `anycast_quiz`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\ndig example.com A +short\ndig example.com AAAA +short\ndig example.com NS +short\n```\n\nSample output:\n\n```text\n93.184.216.34\n2606:2800:220:1:248:1893:25c8:1946\na.iana-servers.net.\n```\n\n**Interpretation:** A/AAAA/NS answers show what clients may use. Empty AAAA is not always an error on IPv4-only paths.\n\n### Example 2\n\n```bash\ndig @1.1.1.1 example.com +noall +answer +stats\n```\n\nSample output:\n\n```text\nexample.com. 300 IN A 93.184.216.34\n;; Query time: 18 msec\n;; SERVER: 1.1.1.1#53\n```\n\n**Interpretation:** Pinning `@resolver` removes 'which stub resolver?' ambiguity. Query time and SERVER lines matter when comparing sites.\n\n### Example 3\n\n```bash\ndig not-a-real-xyz.invalid A +noall +comments 2>/dev/null | head -20\n```\n\nSample output:\n\n```text\n;; ->>HEADER<<- opcode: QUERY, status: NXDOMAIN, id: ...\n```\n\n**Interpretation:** NXDOMAIN means the name does not exist at the queried view — different from timeout or SERVFAIL.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **Anycast, GeoDNS, and Global Traffic** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Expecting one physical server behind ... | See common mistakes | Re-run lesson commands |\n| Debugging only from one region | See common mistakes | Re-run lesson commands |\n| Ignoring resolver location effects | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for Anycast, GeoDNS, and Global Traffic\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Expecting one physical server behind 1.1.1.1', 'Debugging only from one region', 'Ignoring resolver location effects'],
+    ['Anycast vs unicast?', 'Why region matters?', 'CDN POP meaning?'],
+    ['https://www.cloudflare.com/learning/cdn/glossary/anycast-network/'],
+    'anycast_quiz',
+    exercise_guide='Edit `exercise.sh` and implement `anycast_means`, `anycast_dns_role`, `geodns_steers_with`. Each function is a tiny retrieval drill for **Anycast, GeoDNS, and Global Traffic** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `anycast_means` → `same-IP-many-places`; `anycast_dns_role` → `resolver`; `geodns_steers_with` → `DNS`.',
+)
+
+add(
+    34,
+    'email-dns',
+    'Email Networking: MX, SPF, DKIM, DMARC',
+    P4,
+    '1–2 days',
+    ['Query MX records', 'Read SPF TXT basics', 'Know DKIM/DMARC roles', 'Debug delivery with headers'],
+    "## Why this matters\n\nMarketing mail lands in spam. MX, SPF, DKIM, DMARC are DNS-shaped email auth — broken records look like 'email networking' not 'app bugs'.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Query MX records\n- Read SPF TXT basics\n- Know DKIM/DMARC roles\n- Debug delivery with headers\n\nMental model for `34-email-dns` (exercise kind `mx_quiz`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\ndig example.com A +short\ndig example.com AAAA +short\ndig example.com NS +short\n```\n\nSample output:\n\n```text\n93.184.216.34\n2606:2800:220:1:248:1893:25c8:1946\na.iana-servers.net.\n```\n\n**Interpretation:** A/AAAA/NS answers show what clients may use. Empty AAAA is not always an error on IPv4-only paths.\n\n### Example 2\n\n```bash\ndig @1.1.1.1 example.com +noall +answer +stats\n```\n\nSample output:\n\n```text\nexample.com. 300 IN A 93.184.216.34\n;; Query time: 18 msec\n;; SERVER: 1.1.1.1#53\n```\n\n**Interpretation:** Pinning `@resolver` removes 'which stub resolver?' ambiguity. Query time and SERVER lines matter when comparing sites.\n\n### Example 3\n\n```bash\ndig not-a-real-xyz.invalid A +noall +comments 2>/dev/null | head -20\n```\n\nSample output:\n\n```text\n;; ->>HEADER<<- opcode: QUERY, status: NXDOMAIN, id: ...\n```\n\n**Interpretation:** NXDOMAIN means the name does not exist at the queried view — different from timeout or SERVFAIL.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **Email Networking: MX, SPF, DKIM, DMARC** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Permissive SPF (+all) | See common mistakes | Re-run lesson commands |\n| No DMARC on important domains | See common mistakes | Re-run lesson commands |\n| Forgetting PTR for mail IPs | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for Email Networking: MX, SPF, DKIM, DMARC\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Permissive SPF (+all)', 'No DMARC on important domains', 'Forgetting PTR for mail IPs'],
+    ['MX purpose?', 'SPF stored as what record?', 'DMARC policy domain pattern?'],
+    ['https://www.rfc-editor.org/rfc/rfc7208'],
+    'mx_quiz',
+    exercise_guide='Edit `exercise.sh` and implement `mail_dns_record`, `spf_acronym`, `dmarc_acronym`. Each function is a tiny retrieval drill for **Email Networking: MX, SPF, DKIM, DMARC** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `mail_dns_record` → `MX`; `spf_acronym` → `SPF`; `dmarc_acronym` → `DMARC`.',
+)
+
+add(
+    35,
+    'ntp-time',
+    'Time Sync and Why Networks Care',
+    P11,
+    '1 day',
+    ['Check clock sync', 'Explain skew impact on TLS/auth/logs', 'Use timedatectl/chronyc/ntpstat', 'Correlate multi-host timelines'],
+    "## Why this matters\n\nTLS and Kerberos fail after a VM snapshot. Clock skew breaks auth; NTP/chrony is network-critical infrastructure.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Check clock sync\n- Explain skew impact on TLS/auth/logs\n- Use timedatectl/chronyc/ntpstat\n- Correlate multi-host timelines\n\nMental model for `35-ntp-time` (exercise kind `ntp_quiz`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nip -br addr; ip route; ip route get 1.1.1.1\n```\n\nSample output:\n\n```text\neth0 UP 192.168.1.20/24\ndefault via 192.168.1.1 dev eth0\n1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.20\n```\n\n**Interpretation:** `ip route get` shows the chosen route, egress device, and preferred source — gold for 'why did it leave this NIC?' questions.\n\n### Example 2\n\n```bash\nping -c 3 1.1.1.1\nss -tulpn | head\n# macOS: netstat -anv | head\n```\n\nSample output:\n\n```text\n3 packets transmitted, 3 received\nudp ... :53\ntcp LISTEN ... :22\n```\n\n**Interpretation:** ICMP OK proves basic L3; ss proves local listeners. Combine with ARP/neigh when LAN peers fail.\n\n### Example 3\n\n```bash\nip neigh show | head\nping -c 1 $(ip route | awk '/default/ {print $3; exit}')\n```\n\nSample output:\n\n```text\n192.168.1.1 dev eth0 lladdr ... REACHABLE\n64 bytes from gateway\n```\n\n**Interpretation:** Neighbor/ARP state validates L2 adjacency to the gateway before you blame the wider internet.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **Time Sync and Why Networks Care** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Disabling NTP in VMs | See common mistakes | Re-run lesson commands |\n| Comparing logs without timezone disci... | See common mistakes | Re-run lesson commands |\n| Huge leap smears ignored | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for Time Sync and Why Networks Care\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Disabling NTP in VMs', 'Comparing logs without timezone discipline', 'Huge leap smears ignored'],
+    ['Why TLS cares about time?', 'timedatectl purpose?', 'UTC recommendation?'],
+    ['https://www.rfc-editor.org/rfc/rfc5905'],
+    'ntp_quiz',
+    exercise_guide='Edit `exercise.sh` and implement `preferred_log_timezone`, `time_sync_proto`, `certs_need_correct`. Each function is a tiny retrieval drill for **Time Sync and Why Networks Care** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `preferred_log_timezone` → `UTC`; `time_sync_proto` → `NTP`; `certs_need_correct` → `time`.',
+)
+
+add(
+    36,
+    'wireless-basics',
+    'Wi-Fi Networking Essentials',
+    P7,
+    '1 day',
+    ['SSID/BSSID/RSSI concepts', 'Distinguish Wi-Fi vs ethernet failures', 'Scan networks on Linux/macOS', 'Know channels/interference exist'],
+    "## Why this matters\n\nWired fine, Wi-Fi flaky. RF congestion, roaming, and captive portals are still networking — isolate WLAN before blaming the API.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- SSID/BSSID/RSSI concepts\n- Distinguish Wi-Fi vs ethernet failures\n- Scan networks on Linux/macOS\n- Know channels/interference exist\n\nMental model for `36-wireless-basics` (exercise kind `wifi_quiz`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nip -br addr; ip route; ip route get 1.1.1.1\n```\n\nSample output:\n\n```text\neth0 UP 192.168.1.20/24\ndefault via 192.168.1.1 dev eth0\n1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.20\n```\n\n**Interpretation:** `ip route get` shows the chosen route, egress device, and preferred source — gold for 'why did it leave this NIC?' questions.\n\n### Example 2\n\n```bash\nping -c 3 1.1.1.1\nss -tulpn | head\n# macOS: netstat -anv | head\n```\n\nSample output:\n\n```text\n3 packets transmitted, 3 received\nudp ... :53\ntcp LISTEN ... :22\n```\n\n**Interpretation:** ICMP OK proves basic L3; ss proves local listeners. Combine with ARP/neigh when LAN peers fail.\n\n### Example 3\n\n```bash\nip neigh show | head\nping -c 1 $(ip route | awk '/default/ {print $3; exit}')\n```\n\nSample output:\n\n```text\n192.168.1.1 dev eth0 lladdr ... REACHABLE\n64 bytes from gateway\n```\n\n**Interpretation:** Neighbor/ARP state validates L2 adjacency to the gateway before you blame the wider internet.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **Wi-Fi Networking Essentials** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Debugging TCP apps while on captive p... | See common mistakes | Re-run lesson commands |\n| Ignoring 2.4GHz congestion | See common mistakes | Re-run lesson commands |\n| VPN+Wi-Fi Power save weirdness | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for Wi-Fi Networking Essentials\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Debugging TCP apps while on captive portal', 'Ignoring 2.4GHz congestion', 'VPN+Wi-Fi Power save weirdness'],
+    ['SSID vs BSSID?', 'First isolation step?', 'RSSI rough meaning?'],
+    ['https://linuxwireless.sipsolutions.net/'],
+    'wifi_quiz',
+    exercise_guide='Edit `exercise.sh` and implement `wifi_name_broadcast`, `wifi_layer_family`, `wifi_symptom`. Each function is a tiny retrieval drill for **Wi-Fi Networking Essentials** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `wifi_name_broadcast` → `SSID`; `wifi_layer_family` → `L1-L2`; `wifi_symptom` → `drops`.',
+)
+
+add(
+    37,
+    'container-net',
+    'Container Networking: Bridge, CNI, localhost Traps',
+    P12,
+    '2 days',
+    ['Explain docker bridge basics', 'Publish ports correctly', 'Debug DNS inside containers', 'Avoid localhost confusion'],
+    "## Why this matters\n\nHealth check to `localhost` inside a container always passes while the published port is dead. Bridge/CNI/`localhost` traps are container networking 101.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Explain docker bridge basics\n- Publish ports correctly\n- Debug DNS inside containers\n- Avoid localhost confusion\n\nMental model for `37-container-net` (exercise kind `docker_localhost`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\ndocker network ls 2>/dev/null; ip -br addr | head\n# kubectl get svc,ep -A 2>/dev/null | head\n```\n\nSample output:\n\n```text\nNETWORK ID ... bridge ...\neth0 ... 10.0.0.5/24\ncni0 ... 10.244.0.1/24\n```\n\n**Interpretation:** Bridge/CNI interfaces explain why `localhost` inside a container is not the host — classic false-positive health check.\n\n### Example 2\n\n```bash\ngetent hosts kubernetes.default.svc.cluster.local 2>/dev/null || echo 'CoreDNS path: svc.namespace.svc.cluster.local'\n```\n\nSample output:\n\n```text\n10.96.0.1 kubernetes.default.svc.cluster.local\n```\n\n**Interpretation:** Cluster DNS (CoreDNS) answers service names. Wrong search domain → NXDOMAIN that works with FQDN.\n\n### Example 3\n\n```bash\n# Cloud mental model (AWS-style)\necho 'public subnet → IGW; private subnet egress → NAT gateway; SG stateful; NACL stateless'\n```\n\nSample output:\n\n```text\nprivate_subnet_egress_via=NAT-gateway\n```\n\n**Interpretation:** Route tables decide egress path. Security groups dropping return traffic look like timeouts.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **Container Networking: Bridge, CNI, localhost Traps** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| --network host as default | See common mistakes | Re-run lesson commands |\n| Assuming container DNS equals host DN... | See common mistakes | Re-run lesson commands |\n| Publishing all ports broadly | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for Container Networking: Bridge, CNI, localhost Traps\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['--network host as default', 'Assuming container DNS equals host DNS always', 'Publishing all ports broadly'],
+    ['localhost in container means?', '-p 8080:80 meaning?', 'docker network ls purpose?'],
+    ['https://docs.docker.com/network/'],
+    'docker_localhost',
+    exercise_guide='Edit `exercise.sh` and implement `localhost_in_container_is`, `docker_default_network`, `container_net_plugin_model`. Each function is a tiny retrieval drill for **Container Networking: Bridge, CNI, localhost Traps** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `localhost_in_container_is` → `the-container`; `docker_default_network` → `bridge`; `container_net_plugin_model` → `CNI`.',
+)
+
+add(
+    38,
+    'kubernetes-net',
+    'Kubernetes Networking Concepts for Engineers',
+    P12,
+    '2 days',
+    ['Pod/Service/ClusterIP/NodePort/Ingress ideas', 'kubectl network debugging basics', 'CoreDNS importance', 'NetworkPolicy awareness'],
+    "## Why this matters\n\nService A cannot reach Service B by DNS name. ClusterIP, kube-proxy/CNI, NetworkPolicy, and CoreDNS search paths are the Kubernetes network map.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Pod/Service/ClusterIP/NodePort/Ingress ideas\n- kubectl network debugging basics\n- CoreDNS importance\n- NetworkPolicy awareness\n\nMental model for `38-kubernetes-net` (exercise kind `k8s_svc`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\ndocker network ls 2>/dev/null; ip -br addr | head\n# kubectl get svc,ep -A 2>/dev/null | head\n```\n\nSample output:\n\n```text\nNETWORK ID ... bridge ...\neth0 ... 10.0.0.5/24\ncni0 ... 10.244.0.1/24\n```\n\n**Interpretation:** Bridge/CNI interfaces explain why `localhost` inside a container is not the host — classic false-positive health check.\n\n### Example 2\n\n```bash\ngetent hosts kubernetes.default.svc.cluster.local 2>/dev/null || echo 'CoreDNS path: svc.namespace.svc.cluster.local'\n```\n\nSample output:\n\n```text\n10.96.0.1 kubernetes.default.svc.cluster.local\n```\n\n**Interpretation:** Cluster DNS (CoreDNS) answers service names. Wrong search domain → NXDOMAIN that works with FQDN.\n\n### Example 3\n\n```bash\n# Cloud mental model (AWS-style)\necho 'public subnet → IGW; private subnet egress → NAT gateway; SG stateful; NACL stateless'\n```\n\nSample output:\n\n```text\nprivate_subnet_egress_via=NAT-gateway\n```\n\n**Interpretation:** Route tables decide egress path. Security groups dropping return traffic look like timeouts.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **Kubernetes Networking Concepts for Engineers** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| kubectl apply without understanding S... | See common mistakes | Re-run lesson commands |\n| Using NodePort on cloud without LB | See common mistakes | Re-run lesson commands |\n| Flat allow-all policies forever | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for Kubernetes Networking Concepts for Engineers\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['kubectl apply without understanding Services', 'Using NodePort on cloud without LB', 'Flat allow-all policies forever'],
+    ['ClusterIP purpose?', 'CoreDNS role?', 'NetworkPolicy default deny effect?'],
+    ['https://kubernetes.io/docs/concepts/services-networking/'],
+    'k8s_svc',
+    exercise_guide='Edit `exercise.sh` and implement `k8s_cluster_dns`, `k8s_stable_vip_object`, `k8s_policy_sidecar_mesh`. Each function is a tiny retrieval drill for **Kubernetes Networking Concepts for Engineers** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `k8s_cluster_dns` → `CoreDNS`; `k8s_stable_vip_object` → `Service`; `k8s_policy_sidecar_mesh` → `mesh`.',
+)
+
+add(
+    39,
+    'cloud-vpc',
+    'Cloud VPCs: Subnets, Route Tables, Gateways',
+    P12,
+    '2 days',
+    ['Map VPC/subnet/route table/IGW/NAT', 'Design public vs private subnets', 'Avoid overlapping CIDRs for peering', 'Read cloud route tables like `ip route`'],
+    "## Why this matters\n\nPrivate subnet instances cannot apt-get. Route tables, IGW vs NAT gateway, and subnet roles in a VPC explain egress.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Map VPC/subnet/route table/IGW/NAT\n- Design public vs private subnets\n- Avoid overlapping CIDRs for peering\n- Read cloud route tables like `ip route`\n\nMental model for `39-cloud-vpc` (exercise kind `vpc_cidrs`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\ndocker network ls 2>/dev/null; ip -br addr | head\n# kubectl get svc,ep -A 2>/dev/null | head\n```\n\nSample output:\n\n```text\nNETWORK ID ... bridge ...\neth0 ... 10.0.0.5/24\ncni0 ... 10.244.0.1/24\n```\n\n**Interpretation:** Bridge/CNI interfaces explain why `localhost` inside a container is not the host — classic false-positive health check.\n\n### Example 2\n\n```bash\ngetent hosts kubernetes.default.svc.cluster.local 2>/dev/null || echo 'CoreDNS path: svc.namespace.svc.cluster.local'\n```\n\nSample output:\n\n```text\n10.96.0.1 kubernetes.default.svc.cluster.local\n```\n\n**Interpretation:** Cluster DNS (CoreDNS) answers service names. Wrong search domain → NXDOMAIN that works with FQDN.\n\n### Example 3\n\n```bash\n# Cloud mental model (AWS-style)\necho 'public subnet → IGW; private subnet egress → NAT gateway; SG stateful; NACL stateless'\n```\n\nSample output:\n\n```text\nprivate_subnet_egress_via=NAT-gateway\n```\n\n**Interpretation:** Route tables decide egress path. Security groups dropping return traffic look like timeouts.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **Cloud VPCs: Subnets, Route Tables, Gateways** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| All subnets public | See common mistakes | Re-run lesson commands |\n| Overlapping 10.0.0.0/8 everywhere | See common mistakes | Re-run lesson commands |\n| No egress strategy for private subnets | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for Cloud VPCs: Subnets, Route Tables, Gateways\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['All subnets public', 'Overlapping 10.0.0.0/8 everywhere', 'No egress strategy for private subnets'],
+    ['Private subnet egress via?', 'Why non-overlapping CIDRs?', 'SG stateful meaning roughly?'],
+    ['https://docs.aws.amazon.com/vpc/latest/userguide/what-is-amazon-vpc.html'],
+    'vpc_cidrs',
+    exercise_guide='Edit `exercise.sh` and implement `private_subnet_egress_via`, `public_subnet_egress_via`, `cloud_route_object`. Each function is a tiny retrieval drill for **Cloud VPCs: Subnets, Route Tables, Gateways** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `private_subnet_egress_via` → `NAT-gateway`; `public_subnet_egress_via` → `IGW`; `cloud_route_object` → `route-table`.',
+)
+
+add(
+    40,
+    'security-groups',
+    'Security Groups vs NACLs vs Host Firewalls',
+    P8,
+    '1–2 days',
+    ['Contrast SG/NACL/host firewall layers', 'Write least-privilege allowlists', 'Debug timeouts vs resets', 'Trace which layer drops'],
+    "## Why this matters\n\nSG allows 443; NACL misses ephemeral return ports. Stateful vs stateless policy layers — plus host firewalls — stack in confusing ways.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Contrast SG/NACL/host firewall layers\n- Write least-privilege allowlists\n- Debug timeouts vs resets\n- Trace which layer drops\n\nMental model for `40-security-groups` (exercise kind `sg_timeout`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nsudo nft list ruleset 2>/dev/null | head -40 || sudo iptables -L -n -v | head -40\n```\n\nSample output:\n\n```text\ntable inet filter {\n  chain input { type filter hook input priority filter; policy drop;\n```\n\n**Interpretation:** Default **drop/deny** on inbound is the safe posture. Counters (iptables -v) show which rule matches.\n\n### Example 2\n\n```bash\nss -tlnp | head\ncurl -sS -o /dev/null -w '%{http_code}\\n' --connect-timeout 2 http://127.0.0.1:9 || echo 'timeout/fail expected'\n```\n\nSample output:\n\n```text\nLISTEN ...\ntimeout/fail expected\n```\n\n**Interpretation:** Listeners vs policy: a service may listen yet still be unreachable remotely if SG/NACL/nft drops mid-path.\n\n### Example 3\n\n```bash\nping -c 2 -W 1 10.255.255.254 || true\n# compare to: nc -vz -w 2 host 443\n```\n\nSample output:\n\n```text\n100% packet loss\n```\n\n**Interpretation:** Silent drops often look like timeouts, not TCP RST. That distinction drives 'firewall vs app refused' decisions.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **Security Groups vs NACLs vs Host Firewalls** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| 0.0.0.0/0 on SSH in prod | See common mistakes | Re-run lesson commands |\n| Only SGs, no host hardening | See common mistakes | Re-run lesson commands |\n| Changing three layers at once | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for Security Groups vs NACLs vs Host Firewalls\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['0.0.0.0/0 on SSH in prod', 'Only SGs, no host hardening', 'Changing three layers at once'],
+    ['Timeout often means?', 'RST often means?', 'Why defense in depth?'],
+    ['https://docs.aws.amazon.com/vpc/latest/userguide/vpc-security-groups.html'],
+    'sg_timeout',
+    exercise_guide='Edit `exercise.sh` and implement `packet_drop_often_looks_like`, `sg_statefulness`, `nacl_statefulness`. Each function is a tiny retrieval drill for **Security Groups vs NACLs vs Host Firewalls** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `packet_drop_often_looks_like` → `timeout`; `sg_statefulness` → `stateful`; `nacl_statefulness` → `stateless`.',
+)
+
+add(
+    41,
+    'tls-mtls',
+    'mTLS and Service Identity Intro',
+    P5,
+    '1–2 days',
+    ['Explain client certificates', 'Contrast mTLS vs token auth', 'Inspect cert fields for clients', 'Know mesh (Istio/Linkerd) uses mTLS'],
+    "## Why this matters\n\nZero-trust service mesh wants identity, not IPs. mTLS client certs prove workload identity — different failure mode than server-only TLS.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Explain client certificates\n- Contrast mTLS vs token auth\n- Inspect cert fields for clients\n- Know mesh (Istio/Linkerd) uses mTLS\n\nMental model for `41-tls-mtls` (exercise kind `mtls_quiz`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\ncurl -I https://example.com 2>&1 | head -15\n```\n\nSample output:\n\n```text\nHTTP/2 200\ncontent-type: text/html\ncache-control: max-age=...\n```\n\n**Interpretation:** Response line and headers are L7 evidence after TCP/TLS succeeded.\n\n### Example 2\n\n```bash\ncurl -sS -o /dev/null -w 'code=%{http_code} ttfb=%{time_starttransfer} total=%{time_total} ver=%{http_version}\\n' https://example.com\n```\n\nSample output:\n\n```text\ncode=200 ttfb=0.120 total=0.180 ver=2\n```\n\n**Interpretation:** Write-out metrics separate connect delay from first-byte and total time — essential for gateway/CDN debates.\n\n### Example 3\n\n```bash\necho | openssl s_client -connect example.com:443 -servername example.com 2>/dev/null | openssl x509 -noout -subject -dates\n```\n\nSample output:\n\n```text\nsubject=CN = example.com\nnotBefore=...\nnotAfter=...\n```\n\n**Interpretation:** Certificate identity and expiry are independent of HTTP 200. SNI (`-servername`) selects the cert on shared IPs.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **mTLS and Service Identity Intro** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Long-lived client certs without rotat... | See common mistakes | Re-run lesson commands |\n| Skipping revocation strategy | See common mistakes | Re-run lesson commands |\n| Mixing mTLS and permissive plaintext ... | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for mTLS and Service Identity Intro\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Long-lived client certs without rotation', 'Skipping revocation strategy', 'Mixing mTLS and permissive plaintext elsewhere'],
+    ['mTLS means?', 'curl flags for client cert?', 'Mesh relation?'],
+    ['https://www.rfc-editor.org/rfc/rfc8446'],
+    'mtls_quiz',
+    exercise_guide='Edit `exercise.sh` and implement `mtls_means`, `mtls_both_present`, `service_identity_bound_to`. Each function is a tiny retrieval drill for **mTLS and Service Identity Intro** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `mtls_means` → `mutual-TLS`; `mtls_both_present` → `certificate`; `service_identity_bound_to` → `certificate`.',
+)
+
+add(
+    42,
+    'dns-dnssec',
+    'DNSSEC and DNS Security Awareness',
+    P4,
+    '1 day',
+    ['Know what DNSSEC protects', 'See AD flag in dig', 'Understand it does not encrypt DNS', 'Prefer DoH/DoT for privacy'],
+    "## Why this matters\n\nResolver validates DNSSEC and a domain suddenly SERVFAILs. Bogus signatures vs insecure delegation — awareness keeps you from 'fixing' DNS insecurely as a habit.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Know what DNSSEC protects\n- See AD flag in dig\n- Understand it does not encrypt DNS\n- Prefer DoH/DoT for privacy\n\nMental model for `42-dns-dnssec` (exercise kind `dnssec_quiz`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\ndig example.com A +short\ndig example.com AAAA +short\ndig example.com NS +short\n```\n\nSample output:\n\n```text\n93.184.216.34\n2606:2800:220:1:248:1893:25c8:1946\na.iana-servers.net.\n```\n\n**Interpretation:** A/AAAA/NS answers show what clients may use. Empty AAAA is not always an error on IPv4-only paths.\n\n### Example 2\n\n```bash\ndig @1.1.1.1 example.com +noall +answer +stats\n```\n\nSample output:\n\n```text\nexample.com. 300 IN A 93.184.216.34\n;; Query time: 18 msec\n;; SERVER: 1.1.1.1#53\n```\n\n**Interpretation:** Pinning `@resolver` removes 'which stub resolver?' ambiguity. Query time and SERVER lines matter when comparing sites.\n\n### Example 3\n\n```bash\ndig not-a-real-xyz.invalid A +noall +comments 2>/dev/null | head -20\n```\n\nSample output:\n\n```text\n;; ->>HEADER<<- opcode: QUERY, status: NXDOMAIN, id: ...\n```\n\n**Interpretation:** NXDOMAIN means the name does not exist at the queried view — different from timeout or SERVFAIL.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **DNSSEC and DNS Security Awareness** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Thinking DNSSEC hides queries | See common mistakes | Re-run lesson commands |\n| Broken middleboxes failing DNSSEC val... | See common mistakes | Re-run lesson commands |\n| No monitoring of DNSSEC expirations f... | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for DNSSEC and DNS Security Awareness\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Thinking DNSSEC hides queries', 'Broken middleboxes failing DNSSEC validation', 'No monitoring of DNSSEC expirations for your zones'],
+    ['DNSSEC vs DoH?', 'dig flag to request DNSSEC records?', 'What problem DNSSEC does not solve?'],
+    ['https://www.rfc-editor.org/rfc/rfc4033'],
+    'dnssec_quiz',
+    exercise_guide='Edit `exercise.sh` and implement `dnssec_protects`, `dnssec_not_encrypt`, `dnssec_fail_closed_idea`. Each function is a tiny retrieval drill for **DNSSEC and DNS Security Awareness** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `dnssec_protects` → `authenticity`; `dnssec_not_encrypt` → `privacy`; `dnssec_fail_closed_idea` → `yes`.',
+)
+
+add(
+    43,
+    'observability-net',
+    'Network Observability: Metrics, Logs, Traces',
+    P11,
+    '1–2 days',
+    ['Define golden network signals', 'Instrument latency/errors from clients', 'Use flow logs conceptually', 'Correlate app traces with net failures'],
+    "## Why this matters\n\nThree dashboards disagree. RED/USE metrics, flow logs, and traces must correlate on identity (IP, service, trace-id) or you drown.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Define golden network signals\n- Instrument latency/errors from clients\n- Use flow logs conceptually\n- Correlate app traces with net failures\n\nMental model for `43-observability-net` (exercise kind `obs_probe`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nping -c 2 1.1.1.1; dig example.com +short; curl -sS -o /dev/null -w '%{http_code}\\n' https://example.com; ss -tln | head\n```\n\nSample output:\n\n```text\nicmp ok / A record / 200 / LISTEN lines\n```\n\n**Interpretation:** Playbook order: local stack → L3 → DNS → L4 listen/connect → L7. Capstones and interviews reward this sequence.\n\n### Example 2\n\n```bash\nip route get 1.1.1.1; traceroute -n 1.1.1.1 2>/dev/null | head -4 || true\n```\n\nSample output:\n\n```text\n1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.20\n1 192.168.1.1\n```\n\n**Interpretation:** `ip route get` is the fastest 'which path would this host take?' check on Linux.\n\n### Example 3\n\n```bash\ncurl -sS -o /dev/null -w 'namelookup=%{time_namelookup} connect=%{time_connect} ttfb=%{time_starttransfer}\\n' https://example.com\n```\n\nSample output:\n\n```text\nnamelookup=0.020 connect=0.040 ttfb=0.120\n```\n\n**Interpretation:** Percentiles beat averages for latency SLOs; single curl samples teach which phase dominates.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **Network Observability: Metrics, Logs, Traces** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Metrics without alerts | See common mistakes | Re-run lesson commands |\n| Only average latency | See common mistakes | Re-run lesson commands |\n| No probe from multiple regions | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for Network Observability: Metrics, Logs, Traces\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Metrics without alerts', 'Only average latency', 'No probe from multiple regions'],
+    ['Name four golden signals', 'Why percentiles?', 'Flow logs help prove what?'],
+    ['https://sre.google/sre-book/monitoring-distributed-systems/'],
+    'obs_probe',
+    exercise_guide='Edit `exercise.sh` and implement `latency_better_as`, `third_obs_pillar`, `synthetic_check_name`. Each function is a tiny retrieval drill for **Network Observability: Metrics, Logs, Traces** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `latency_better_as` → `percentiles`; `third_obs_pillar` → `traces`; `synthetic_check_name` → `probe`.',
+)
+
+add(
+    44,
+    'troubleshooting-playbook',
+    'Networking Troubleshooting Playbook',
+    P11,
+    '2 days',
+    ['Apply a layered checklist', 'Capture evidence before changing things', 'Bisect path: local → LAN → WAN → DNS → TLS → app', 'Write crisp incident notes'],
+    "## Why this matters\n\nIncident channel is chaotic. A repeatable layer-ordered playbook (path → DNS → listen/connect → TLS → app) is the difference between calm and thrash.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Apply a layered checklist\n- Capture evidence before changing things\n- Bisect path: local → LAN → WAN → DNS → TLS → app\n- Write crisp incident notes\n\nMental model for `44-troubleshooting-playbook` (exercise kind `playbook_order`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nping -c 2 1.1.1.1; dig example.com +short; curl -sS -o /dev/null -w '%{http_code}\\n' https://example.com; ss -tln | head\n```\n\nSample output:\n\n```text\nicmp ok / A record / 200 / LISTEN lines\n```\n\n**Interpretation:** Playbook order: local stack → L3 → DNS → L4 listen/connect → L7. Capstones and interviews reward this sequence.\n\n### Example 2\n\n```bash\nip route get 1.1.1.1; traceroute -n 1.1.1.1 2>/dev/null | head -4 || true\n```\n\nSample output:\n\n```text\n1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.20\n1 192.168.1.1\n```\n\n**Interpretation:** `ip route get` is the fastest 'which path would this host take?' check on Linux.\n\n### Example 3\n\n```bash\ncurl -sS -o /dev/null -w 'namelookup=%{time_namelookup} connect=%{time_connect} ttfb=%{time_starttransfer}\\n' https://example.com\n```\n\nSample output:\n\n```text\nnamelookup=0.020 connect=0.040 ttfb=0.120\n```\n\n**Interpretation:** Percentiles beat averages for latency SLOs; single curl samples teach which phase dominates.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **Networking Troubleshooting Playbook** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Shotgun restarts | See common mistakes | Re-run lesson commands |\n| No notes | See common mistakes | Re-run lesson commands |\n| Skipping DNS | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for Networking Troubleshooting Playbook\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Shotgun restarts', 'No notes', 'Skipping DNS'],
+    ['First three checks?', 'Why evidence before reboot?', 'Where capture fits?'],
+    ['https://sre.google/sre-book/'],
+    'playbook_order',
+    exercise_guide='Edit `exercise.sh` and implement `first_troubleshoot_layer`, `after_l3_check`, `prove_listener_with`. Each function is a tiny retrieval drill for **Networking Troubleshooting Playbook** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `first_troubleshoot_layer` → `local`; `after_l3_check` → `DNS`; `prove_listener_with` → `ss`.',
+)
+
+add(
+    45,
+    'performance-tuning',
+    'Host Network Performance Tuning Intro',
+    P11,
+    '1–2 days',
+    ['Inspect RX/TX errors and drops', 'Know ephemerial port exhaustion exists', 'Tune carefully with evidence', 'Relate to ulimit/somaxconn'],
+    "## Why this matters\n\nHigh connection churn exhausts sockets. Softirq, backlog, ephemeral ports, and buffer tuning — intro only, with 'measure first' discipline.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Inspect RX/TX errors and drops\n- Know ephemerial port exhaustion exists\n- Tune carefully with evidence\n- Relate to ulimit/somaxconn\n\nMental model for `45-performance-tuning` (exercise kind `perf_sysctl`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nping -c 2 1.1.1.1; dig example.com +short; curl -sS -o /dev/null -w '%{http_code}\\n' https://example.com; ss -tln | head\n```\n\nSample output:\n\n```text\nicmp ok / A record / 200 / LISTEN lines\n```\n\n**Interpretation:** Playbook order: local stack → L3 → DNS → L4 listen/connect → L7. Capstones and interviews reward this sequence.\n\n### Example 2\n\n```bash\nip route get 1.1.1.1; traceroute -n 1.1.1.1 2>/dev/null | head -4 || true\n```\n\nSample output:\n\n```text\n1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.20\n1 192.168.1.1\n```\n\n**Interpretation:** `ip route get` is the fastest 'which path would this host take?' check on Linux.\n\n### Example 3\n\n```bash\ncurl -sS -o /dev/null -w 'namelookup=%{time_namelookup} connect=%{time_connect} ttfb=%{time_starttransfer}\\n' https://example.com\n```\n\nSample output:\n\n```text\nnamelookup=0.020 connect=0.040 ttfb=0.120\n```\n\n**Interpretation:** Percentiles beat averages for latency SLOs; single curl samples teach which phase dominates.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **Host Network Performance Tuning Intro** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| sysctl cargo cult from blogs | See common mistakes | Re-run lesson commands |\n| Raising limits hiding leaks | See common mistakes | Re-run lesson commands |\n| Ignoring NIC hardware offload/errors | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for Host Network Performance Tuning Intro\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['sysctl cargo cult from blogs', 'Raising limits hiding leaks', 'Ignoring NIC hardware offload/errors'],
+    ['Where see interface drops?', 'Ephemeral ports why?', 'Measure before tune?'],
+    ['https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt'],
+    'perf_sysctl',
+    exercise_guide='Edit `exercise.sh` and implement `measure_then`, `kernel_knobs_iface`, `blind_tuning_is`. Each function is a tiny retrieval drill for **Host Network Performance Tuning Intro** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `measure_then` → `tune`; `kernel_knobs_iface` → `sysctl`; `blind_tuning_is` → `harmful`.',
+)
+
+add(
+    46,
+    'api-gateways',
+    'API Gateways and Edge Patterns',
+    P10,
+    '1–2 days',
+    ['Place auth/rate-limit/WAF at edge', 'Distinguish gateway vs service mesh', 'Debug 502/503/504 meanings', 'Trace request IDs across hops'],
+    "## Why this matters\n\nMobile apps, browsers, and partners share one edge. API gateways add auth, rate limit, and routing — and new failure domains at the edge.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Place auth/rate-limit/WAF at edge\n- Distinguish gateway vs service mesh\n- Debug 502/503/504 meanings\n- Trace request IDs across hops\n\nMental model for `46-api-gateways` (exercise kind `gw_504`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nip -br addr; ip route; ip route get 1.1.1.1\n```\n\nSample output:\n\n```text\neth0 UP 192.168.1.20/24\ndefault via 192.168.1.1 dev eth0\n1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.20\n```\n\n**Interpretation:** `ip route get` shows the chosen route, egress device, and preferred source — gold for 'why did it leave this NIC?' questions.\n\n### Example 2\n\n```bash\nping -c 3 1.1.1.1\nss -tulpn | head\n# macOS: netstat -anv | head\n```\n\nSample output:\n\n```text\n3 packets transmitted, 3 received\nudp ... :53\ntcp LISTEN ... :22\n```\n\n**Interpretation:** ICMP OK proves basic L3; ss proves local listeners. Combine with ARP/neigh when LAN peers fail.\n\n### Example 3\n\n```bash\nip neigh show | head\nping -c 1 $(ip route | awk '/default/ {print $3; exit}')\n```\n\nSample output:\n\n```text\n192.168.1.1 dev eth0 lladdr ... REACHABLE\n64 bytes from gateway\n```\n\n**Interpretation:** Neighbor/ARP state validates L2 adjacency to the gateway before you blame the wider internet.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **API Gateways and Edge Patterns** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Business logic only in gateway forever | See common mistakes | Re-run lesson commands |\n| No correlation IDs | See common mistakes | Re-run lesson commands |\n| Retry storms without backoff | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for API Gateways and Edge Patterns\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Business logic only in gateway forever', 'No correlation IDs', 'Retry storms without backoff'],
+    ['504 often means?', '502 hints?', 'Why request IDs?'],
+    ['https://www.rfc-editor.org/rfc/rfc9110'],
+    'gw_504',
+    exercise_guide='Edit `exercise.sh` and implement `http_504_often`, `http_502_often`, `edge_pattern`. Each function is a tiny retrieval drill for **API Gateways and Edge Patterns** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `http_504_often` → `upstream-timeout`; `http_502_often` → `bad-gateway`; `edge_pattern` → `reverse-proxy`.',
+)
+
+add(
+    47,
+    'zero-trust',
+    'Zero Trust Networking Ideas',
+    P9,
+    '1 day',
+    ['Move beyond flat VPN trust', 'Prefer identity-aware access', 'Least privilege paths', 'Combine device posture + user identity'],
+    "## Why this matters\n\nVPN as the only trust boundary is failing. Zero trust shifts to identity, device posture, and per-request auth — networking still matters for enforcement points.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Move beyond flat VPN trust\n- Prefer identity-aware access\n- Least privilege paths\n- Combine device posture + user identity\n\nMental model for `47-zero-trust` (exercise kind `zt_quiz`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nsudo nft list ruleset 2>/dev/null | head -40 || sudo iptables -L -n -v | head -40\n```\n\nSample output:\n\n```text\ntable inet filter {\n  chain input { type filter hook input priority filter; policy drop;\n```\n\n**Interpretation:** Default **drop/deny** on inbound is the safe posture. Counters (iptables -v) show which rule matches.\n\n### Example 2\n\n```bash\nss -tlnp | head\ncurl -sS -o /dev/null -w '%{http_code}\\n' --connect-timeout 2 http://127.0.0.1:9 || echo 'timeout/fail expected'\n```\n\nSample output:\n\n```text\nLISTEN ...\ntimeout/fail expected\n```\n\n**Interpretation:** Listeners vs policy: a service may listen yet still be unreachable remotely if SG/NACL/nft drops mid-path.\n\n### Example 3\n\n```bash\nping -c 2 -W 1 10.255.255.254 || true\n# compare to: nc -vz -w 2 host 443\n```\n\nSample output:\n\n```text\n100% packet loss\n```\n\n**Interpretation:** Silent drops often look like timeouts, not TCP RST. That distinction drives 'firewall vs app refused' decisions.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **Zero Trust Networking Ideas** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| VPN equals secure forever | See common mistakes | Re-run lesson commands |\n| Flat allow-all east-west | See common mistakes | Re-run lesson commands |\n| Long-lived shared secrets | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for Zero Trust Networking Ideas\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['VPN equals secure forever', 'Flat allow-all east-west', 'Long-lived shared secrets'],
+    ['Zero trust core idea?', 'Risk of flat VPN?', 'Short-lived creds why?'],
+    ['https://www.nist.gov/publications/zero-trust-architecture'],
+    'zt_quiz',
+    exercise_guide='Edit `exercise.sh` and implement `zero_trust_rejects`, `verify_every_request`, `prefer_identity_or_location`. Each function is a tiny retrieval drill for **Zero Trust Networking Ideas** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `zero_trust_rejects` → `location-only-trust`; `verify_every_request` → `yes`; `prefer_identity_or_location` → `identity`.',
+)
+
+add(
+    48,
+    'lab-packet',
+    'Lab: Build a Mini Network Path',
+    P0,
+    '2 days',
+    ['Connect two VMs via private network', 'Set addresses/routes manually', 'Verify with ping/curl/tcpdump', 'Document the path'],
+    "## Why this matters\n\nBuild a tiny path: DNS → route → listen → TLS → HTTP. Capstone labs glue earlier tools into one story you can demo.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Connect two VMs via private network\n- Set addresses/routes manually\n- Verify with ping/curl/tcpdump\n- Document the path\n\nMental model for `48-lab-packet` (exercise kind `lab_pair`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nping -c 2 1.1.1.1; dig example.com +short; curl -sS -o /dev/null -w '%{http_code}\\n' https://example.com; ss -tln | head\n```\n\nSample output:\n\n```text\nicmp ok / A record / 200 / LISTEN lines\n```\n\n**Interpretation:** Playbook order: local stack → L3 → DNS → L4 listen/connect → L7. Capstones and interviews reward this sequence.\n\n### Example 2\n\n```bash\nip route get 1.1.1.1; traceroute -n 1.1.1.1 2>/dev/null | head -4 || true\n```\n\nSample output:\n\n```text\n1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.20\n1 192.168.1.1\n```\n\n**Interpretation:** `ip route get` is the fastest 'which path would this host take?' check on Linux.\n\n### Example 3\n\n```bash\ncurl -sS -o /dev/null -w 'namelookup=%{time_namelookup} connect=%{time_connect} ttfb=%{time_starttransfer}\\n' https://example.com\n```\n\nSample output:\n\n```text\nnamelookup=0.020 connect=0.040 ttfb=0.120\n```\n\n**Interpretation:** Percentiles beat averages for latency SLOs; single curl samples teach which phase dominates.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **Lab: Build a Mini Network Path** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Using public internet for first labs | See common mistakes | Re-run lesson commands |\n| No snapshots before routing experiments | See common mistakes | Re-run lesson commands |\n| Overlapping subnets | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for Lab: Build a Mini Network Path\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Using public internet for first labs', 'No snapshots before routing experiments', 'Overlapping subnets'],
+    ['What proves L3 connectivity?', 'How prove HTTP path?', 'Why tcpdump?'],
+    ['https://netdevops.me/'],
+    'lab_pair',
+    exercise_guide='Edit `exercise.sh` and implement `l3_proof_tool`, `l4_proof_tool`, `dns_proof_tool`. Each function is a tiny retrieval drill for **Lab: Build a Mini Network Path** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `l3_proof_tool` → `ping`; `l4_proof_tool` → `nc`; `dns_proof_tool` → `dig`.',
+)
+
+add(
+    49,
+    'command-cheatsheet',
+    'Command Cheatsheet Consolidation Drill',
+    P3,
+    '1–2 days',
+    ['Memorize a personal daily cheatsheet', 'Group tools by layer', 'Practice without looking', 'Keep a living notes file'],
+    "## Why this matters\n\nInterview or outage: you blank on flags. A cheatsheet drill forces retrieval of `ip`/`ss`/`dig`/`curl`/`tcpdump` under time pressure.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Memorize a personal daily cheatsheet\n- Group tools by layer\n- Practice without looking\n- Keep a living notes file\n\nMental model for `49-command-cheatsheet` (exercise kind `cheat_count`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nping -c 2 1.1.1.1; dig example.com +short; curl -sS -o /dev/null -w '%{http_code}\\n' https://example.com; ss -tln | head\n```\n\nSample output:\n\n```text\nicmp ok / A record / 200 / LISTEN lines\n```\n\n**Interpretation:** Playbook order: local stack → L3 → DNS → L4 listen/connect → L7. Capstones and interviews reward this sequence.\n\n### Example 2\n\n```bash\nip route get 1.1.1.1; traceroute -n 1.1.1.1 2>/dev/null | head -4 || true\n```\n\nSample output:\n\n```text\n1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.20\n1 192.168.1.1\n```\n\n**Interpretation:** `ip route get` is the fastest 'which path would this host take?' check on Linux.\n\n### Example 3\n\n```bash\ncurl -sS -o /dev/null -w 'namelookup=%{time_namelookup} connect=%{time_connect} ttfb=%{time_starttransfer}\\n' https://example.com\n```\n\nSample output:\n\n```text\nnamelookup=0.020 connect=0.040 ttfb=0.120\n```\n\n**Interpretation:** Percentiles beat averages for latency SLOs; single curl samples teach which phase dominates.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **Command Cheatsheet Consolidation Drill** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Huge unsorted note dumps | See common mistakes | Re-run lesson commands |\n| Never practicing recall | See common mistakes | Re-run lesson commands |\n| Tools without understanding | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for Command Cheatsheet Consolidation Drill\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Huge unsorted note dumps', 'Never practicing recall', 'Tools without understanding'],
+    ['Name two tools per L3/L4/L7', 'Why cheatsheets help oncalls?', 'What belongs in daily roster?'],
+    ['https://wiki.archlinux.org/title/Network_configuration'],
+    'cheat_count',
+    exercise_guide='Edit `exercise.sh` and implement `daily_tool_count_min`, `capture_tool`, `http_client_tool`. Each function is a tiny retrieval drill for **Command Cheatsheet Consolidation Drill** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `daily_tool_count_min` → `8`; `capture_tool` → `tcpdump`; `http_client_tool` → `curl`.',
+)
+
+add(
+    50,
+    'gre-vxlan',
+    'Tunnels: GRE/VXLAN Overlay Awareness',
+    P9,
+    '1–2 days',
+    ['Explain overlays vs underlays', 'Know VXLAN for multi-tenant/datacenter', 'See Linux vxlan devices', 'Relate to cloud SDN'],
+    "## Why this matters\n\nOverlays everywhere: cloud networks, Kubernetes, DC fabrics. GRE/VXLAN awareness explains extra headers, MTU, and 'which IP do ACLs see?'.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Explain overlays vs underlays\n- Know VXLAN for multi-tenant/datacenter\n- See Linux vxlan devices\n- Relate to cloud SDN\n\nMental model for `50-gre-vxlan` (exercise kind `vxlan_quiz`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nip -br link; ip route | head\n# After VPN up, compare default route and MTU\n```\n\nSample output:\n\n```text\nwg0 UP ...\ndefault via 10.10.0.1 dev wg0\nmtu 1420\n```\n\n**Interpretation:** Tunnels add outer headers → lower effective MTU. Blackhole PMTUD is a classic VPN failure mode.\n\n### Example 2\n\n```bash\nping -c 2 -M do -s 1472 1.1.1.1 2>&1 | head -5 || ping -c 2 -D -s 1472 1.1.1.1 2>&1 | head -5\n```\n\nSample output:\n\n```text\nFrag needed / Message too long / 100% loss\n```\n\n**Interpretation:** Large DF probes failing after VPN connect points to MTU/MSS issues — lower MSS/MTU or fix ICMP PTB.\n\n### Example 3\n\n```bash\nssh -N -L 8080:127.0.0.1:80 user@bastion  # example local forward (lab)\necho 'local forward uses -L; remote -R; dynamic -D'\n```\n\nSample output:\n\n```text\n(ssh holds open; curl localhost:8080 hits remote :80)\n```\n\n**Interpretation:** SSH forwards are tactical tunnels. Know `-L` vs `-R` direction before debugging 'connection refused' on the wrong host.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **Tunnels: GRE/VXLAN Overlay Awareness** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Ignoring underlay MTU | See common mistakes | Re-run lesson commands |\n| Debugging only overlay IPs | See common mistakes | Re-run lesson commands |\n| No mapping of VNI/tenants | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for Tunnels: GRE/VXLAN Overlay Awareness\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Ignoring underlay MTU', 'Debugging only overlay IPs', 'No mapping of VNI/tenants'],
+    ['Overlay vs underlay?', 'VXLAN common use?', 'Why MTU again?'],
+    ['https://www.rfc-editor.org/rfc/rfc7348'],
+    'vxlan_quiz',
+    exercise_guide='Edit `exercise.sh` and implement `vxlan_is_an`, `vxlan_over`, `gre_is_a`. Each function is a tiny retrieval drill for **Tunnels: GRE/VXLAN Overlay Awareness** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `vxlan_is_an` → `overlay`; `vxlan_over` → `UDP`; `gre_is_a` → `tunnel`.',
+)
+
+add(
+    51,
+    'quic-firewall',
+    'Firewalls, Middleboxes, and Modern Protocols',
+    P8,
+    '1 day',
+    ['Know middleboxes can break UDP/QUIC', 'Test fallbacks', 'Design allowlists for new protocols', 'Document egress needs'],
+    "## Why this matters\n\nQUIC and HTTP/3 confuse stateful firewalls expecting TCP. Middlebox behavior toward UDP/443 and encrypted ClientHello is modern edge reality.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Know middleboxes can break UDP/QUIC\n- Test fallbacks\n- Design allowlists for new protocols\n- Document egress needs\n\nMental model for `51-quic-firewall` (exercise kind `middlebox_quiz`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nsudo nft list ruleset 2>/dev/null | head -40 || sudo iptables -L -n -v | head -40\n```\n\nSample output:\n\n```text\ntable inet filter {\n  chain input { type filter hook input priority filter; policy drop;\n```\n\n**Interpretation:** Default **drop/deny** on inbound is the safe posture. Counters (iptables -v) show which rule matches.\n\n### Example 2\n\n```bash\nss -tlnp | head\ncurl -sS -o /dev/null -w '%{http_code}\\n' --connect-timeout 2 http://127.0.0.1:9 || echo 'timeout/fail expected'\n```\n\nSample output:\n\n```text\nLISTEN ...\ntimeout/fail expected\n```\n\n**Interpretation:** Listeners vs policy: a service may listen yet still be unreachable remotely if SG/NACL/nft drops mid-path.\n\n### Example 3\n\n```bash\nping -c 2 -W 1 10.255.255.254 || true\n# compare to: nc -vz -w 2 host 443\n```\n\nSample output:\n\n```text\n100% packet loss\n```\n\n**Interpretation:** Silent drops often look like timeouts, not TCP RST. That distinction drives 'firewall vs app refused' decisions.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **Firewalls, Middleboxes, and Modern Protocols** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Blind UDP blocks without measurement | See common mistakes | Re-run lesson commands |\n| Assuming middleboxes are transparent | See common mistakes | Re-run lesson commands |\n| No inventory of required egress | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for Firewalls, Middleboxes, and Modern Protocols\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Blind UDP blocks without measurement', 'Assuming middleboxes are transparent', 'No inventory of required egress'],
+    ['Why UDP 443 matters?', 'What is a middlebox?', 'Fallback strategy?'],
+    ['https://www.rfc-editor.org/rfc/rfc9308'],
+    'middlebox_quiz',
+    exercise_guide='Edit `exercise.sh` and implement `http3_uses_udp_port`, `broken_by_tcp_assume`, `allowlist_tcp_blocks`. Each function is a tiny retrieval drill for **Firewalls, Middleboxes, and Modern Protocols** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `http3_uses_udp_port` → `443`; `broken_by_tcp_assume` → `QUIC`; `allowlist_tcp_blocks` → `UDP`.',
+)
+
+add(
+    52,
+    'interview-net',
+    'Networking Interview & Oncall Drills',
+    P11,
+    '2 days',
+    ['Explain issues aloud with structure', 'Whiteboard a path', 'Solve timed scenarios', 'Prioritize user impact'],
+    "## Why this matters\n\nWhiteboard: 'packets won't flow'. Interview/oncall drills reward structured differential diagnosis, not trivia lists.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Explain issues aloud with structure\n- Whiteboard a path\n- Solve timed scenarios\n- Prioritize user impact\n\nMental model for `52-interview-net` (exercise kind `interview_drill`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nping -c 2 1.1.1.1; dig example.com +short; curl -sS -o /dev/null -w '%{http_code}\\n' https://example.com; ss -tln | head\n```\n\nSample output:\n\n```text\nicmp ok / A record / 200 / LISTEN lines\n```\n\n**Interpretation:** Playbook order: local stack → L3 → DNS → L4 listen/connect → L7. Capstones and interviews reward this sequence.\n\n### Example 2\n\n```bash\nip route get 1.1.1.1; traceroute -n 1.1.1.1 2>/dev/null | head -4 || true\n```\n\nSample output:\n\n```text\n1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.20\n1 192.168.1.1\n```\n\n**Interpretation:** `ip route get` is the fastest 'which path would this host take?' check on Linux.\n\n### Example 3\n\n```bash\ncurl -sS -o /dev/null -w 'namelookup=%{time_namelookup} connect=%{time_connect} ttfb=%{time_starttransfer}\\n' https://example.com\n```\n\nSample output:\n\n```text\nnamelookup=0.020 connect=0.040 ttfb=0.120\n```\n\n**Interpretation:** Percentiles beat averages for latency SLOs; single curl samples teach which phase dominates.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **Networking Interview & Oncall Drills** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Jumping to rare root causes first | See common mistakes | Re-run lesson commands |\n| No communication | See common mistakes | Re-run lesson commands |\n| Fixing without verifying | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for Networking Interview & Oncall Drills\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Jumping to rare root causes first', 'No communication', 'Fixing without verifying'],
+    ['One-city issue first suspects?', 'TLS intermittent ideas?', 'Verify how?'],
+    ['https://sre.google/sre-book/managing-incidents/'],
+    'interview_drill',
+    exercise_guide='Edit `exercise.sh` and implement `verify_after_fix`, `hypothesis_first`, `one_layer_at_a_time`. Each function is a tiny retrieval drill for **Networking Interview & Oncall Drills** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `verify_after_fix` → `yes`; `hypothesis_first` → `yes`; `one_layer_at_a_time` → `yes`.',
+)
+
+add(
+    53,
+    'capstone-lab-net',
+    'Capstone: Multi-Host Lab Network',
+    P13,
+    '3–5 days',
+    ['Build 3-node lab with routing', 'Provide DNS or /etc/hosts strategy', 'Serve HTTP via proxy', 'Document addressing & runbook'],
+    "## Why this matters\n\nMulti-host lab: wire addressing, routing, DNS, and a small service. Capstone proves you can build, not only read.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Build 3-node lab with routing\n- Provide DNS or /etc/hosts strategy\n- Serve HTTP via proxy\n- Document addressing & runbook\n\nMental model for `53-capstone-lab-net` (exercise kind `cap_lab`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nping -c 2 1.1.1.1; dig example.com +short; curl -sS -o /dev/null -w '%{http_code}\\n' https://example.com; ss -tln | head\n```\n\nSample output:\n\n```text\nicmp ok / A record / 200 / LISTEN lines\n```\n\n**Interpretation:** Playbook order: local stack → L3 → DNS → L4 listen/connect → L7. Capstones and interviews reward this sequence.\n\n### Example 2\n\n```bash\nip route get 1.1.1.1; traceroute -n 1.1.1.1 2>/dev/null | head -4 || true\n```\n\nSample output:\n\n```text\n1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.20\n1 192.168.1.1\n```\n\n**Interpretation:** `ip route get` is the fastest 'which path would this host take?' check on Linux.\n\n### Example 3\n\n```bash\ncurl -sS -o /dev/null -w 'namelookup=%{time_namelookup} connect=%{time_connect} ttfb=%{time_starttransfer}\\n' https://example.com\n```\n\nSample output:\n\n```text\nnamelookup=0.020 connect=0.040 ttfb=0.120\n```\n\n**Interpretation:** Percentiles beat averages for latency SLOs; single curl samples teach which phase dominates.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **Capstone: Multi-Host Lab Network** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| DHCP chaos without notes | See common mistakes | Re-run lesson commands |\n| No diagram | See common mistakes | Re-run lesson commands |\n| All ports open | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for Capstone: Multi-Host Lab Network\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['DHCP chaos without notes', 'No diagram', 'All ports open'],
+    ['What is the next hop from client?', 'Which ports open?', 'How prove path?'],
+    ['https://netdevops.me/'],
+    'cap_lab',
+    exercise_guide='Edit `exercise.sh` and implement `capstone_needs`, `need_address_plan`, `prove_paths`. Each function is a tiny retrieval drill for **Capstone: Multi-Host Lab Network** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `capstone_needs` → `diagram`; `need_address_plan` → `yes`; `prove_paths` → `yes`.',
+)
+
+add(
+    54,
+    'capstone-debug',
+    'Capstone: Broken Network Challenge',
+    P13,
+    '2–4 days',
+    ['Debug planted failures', 'Produce timeline + root cause', 'Fix with minimal change', 'Write postmortem'],
+    "## Why this matters\n\nSomeone broke the lab on purpose. Debug with evidence only — no config archaeology until measurements demand it.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Debug planted failures\n- Produce timeline + root cause\n- Fix with minimal change\n- Write postmortem\n\nMental model for `54-capstone-debug` (exercise kind `cap_break`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nping -c 2 1.1.1.1; dig example.com +short; curl -sS -o /dev/null -w '%{http_code}\\n' https://example.com; ss -tln | head\n```\n\nSample output:\n\n```text\nicmp ok / A record / 200 / LISTEN lines\n```\n\n**Interpretation:** Playbook order: local stack → L3 → DNS → L4 listen/connect → L7. Capstones and interviews reward this sequence.\n\n### Example 2\n\n```bash\nip route get 1.1.1.1; traceroute -n 1.1.1.1 2>/dev/null | head -4 || true\n```\n\nSample output:\n\n```text\n1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.20\n1 192.168.1.1\n```\n\n**Interpretation:** `ip route get` is the fastest 'which path would this host take?' check on Linux.\n\n### Example 3\n\n```bash\ncurl -sS -o /dev/null -w 'namelookup=%{time_namelookup} connect=%{time_connect} ttfb=%{time_starttransfer}\\n' https://example.com\n```\n\nSample output:\n\n```text\nnamelookup=0.020 connect=0.040 ttfb=0.120\n```\n\n**Interpretation:** Percentiles beat averages for latency SLOs; single curl samples teach which phase dominates.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **Capstone: Broken Network Challenge** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| Recreate VMs instead of debugging | See common mistakes | Re-run lesson commands |\n| Changing everything | See common mistakes | Re-run lesson commands |\n| No postmortem | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for Capstone: Broken Network Challenge\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['Recreate VMs instead of debugging', 'Changing everything', 'No postmortem'],
+    ['Root cause?', 'Evidence?', 'Prevention?'],
+    ['https://sre.google/sre-book/postmortem-culture/'],
+    'cap_break',
+    exercise_guide='Edit `exercise.sh` and implement `postmortem_must_include`, `postmortem_timeline`, `postmortem_verify`. Each function is a tiny retrieval drill for **Capstone: Broken Network Challenge** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `postmortem_must_include` → `root-cause`; `postmortem_timeline` → `yes`; `postmortem_verify` → `yes`.',
+)
+
+add(
+    55,
+    'capstone-edge',
+    'Capstone: Secure Edge for a Small App',
+    P13,
+    '4–6 days',
+    ['Terminate TLS at edge', 'Reverse proxy to app', 'Firewall + SSH hardening + health checks', 'Probe latency/error metrics'],
+    "## Why this matters\n\nShip a small app edge: TLS, reverse proxy, health checks, minimal firewall. Capstone for secure-enough production instincts.\n\n## Core concepts\n\nWhat you must be able to explain:\n\n- Terminate TLS at edge\n- Reverse proxy to app\n- Firewall + SSH hardening + health checks\n- Probe latency/error metrics\n\nMental model for `55-capstone-edge` (exercise kind `cap_edge`):\n\n- Prefer **measurable** checks (exit codes, ICMP replies, DNS rcode, HTTP status, socket state) over vibes.\n- Separate **reachability** (can packets flow?) from **correctness** (right service, cert, route, identity).\n- Ask: *which layer's tool falsifies my current hypothesis?* Then run that tool.\n- Record the exact command that proved the root cause — that becomes your playbook snippet.\n\n## Worked commands\n\nRun these on a lab host. Linux VM preferred for `ip`/`ss`/`tcpdump`/`nft`; macOS is fine for many `curl`/`dig`/`ping` drills. Your addresses and timings will differ — match the *shape* of the output and the conclusion you draw.\n\n### Example 1\n\n```bash\nping -c 2 1.1.1.1; dig example.com +short; curl -sS -o /dev/null -w '%{http_code}\\n' https://example.com; ss -tln | head\n```\n\nSample output:\n\n```text\nicmp ok / A record / 200 / LISTEN lines\n```\n\n**Interpretation:** Playbook order: local stack → L3 → DNS → L4 listen/connect → L7. Capstones and interviews reward this sequence.\n\n### Example 2\n\n```bash\nip route get 1.1.1.1; traceroute -n 1.1.1.1 2>/dev/null | head -4 || true\n```\n\nSample output:\n\n```text\n1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.20\n1 192.168.1.1\n```\n\n**Interpretation:** `ip route get` is the fastest 'which path would this host take?' check on Linux.\n\n### Example 3\n\n```bash\ncurl -sS -o /dev/null -w 'namelookup=%{time_namelookup} connect=%{time_connect} ttfb=%{time_starttransfer}\\n' https://example.com\n```\n\nSample output:\n\n```text\nnamelookup=0.020 connect=0.040 ttfb=0.120\n```\n\n**Interpretation:** Percentiles beat averages for latency SLOs; single curl samples teach which phase dominates.\n\n\n## Mini-lab\n\n1. Re-type every worked command for **Capstone: Secure Edge for a Small App** and paste outputs into lab notes.\n2. Introduce one controlled failure in the lab (wrong DNS, firewall drop, bad route) and recover using only this lesson's tools.\n3. Write a 5-line playbook: symptom → first command → expected healthy output.\n4. Complete the exercise stubs; then explain each function's return value without looking.\n\n## Failure modes\n\n| Symptom | Likely cause | Next check |\n|---------|--------------|------------|\n| App exposed directly on :80 public | See common mistakes | Re-run lesson commands |\n| No health checks | See common mistakes | Re-run lesson commands |\n| Certs without renewal plan | See common mistakes | Re-run lesson commands |\n| Timeout with no RST | Silent drop / blackhole | tcpdump + compare path |\n\n## Study tip for Capstone: Secure Edge for a Small App\n\nBefore each new command, write a one-line hypothesis. If the result falsifies it, update the hypothesis instead of stacking random tools. Note equivalents across OS (`ip` ↔ `ifconfig`/`route`, `ss` ↔ `netstat`). Re-run two commands from this lesson tomorrow from memory and explain the sample outputs out loud.\n\n## Evidence habit\n\nWhen pages are down, prefer evidence (`ip route get`, resolver answer, packet capture, listener list) over intuition. Document **command → output → conclusion** in a lab notebook so the same path is reusable on-call. Change one variable at a time; write a one-line hypothesis before each new tool.\n",
+    ['App exposed directly on :80 public', 'No health checks', 'Certs without renewal plan'],
+    ['What is public?', 'How detect expiry?', 'How prove health?'],
+    ['https://nginx.org/en/docs/'],
+    'cap_edge',
+    exercise_guide='Edit `exercise.sh` and implement `edge_should_terminate`, `forward_ip_from`, `health_checks_hit`. Each function is a tiny retrieval drill for **Capstone: Secure Edge for a Small App** — return the exact tokens/flags/labels from the lesson. Keep the comment above each function describing when you would use that fact on-call. Run `./test.sh` until all 3 assertions pass.',
+    exercise_examples='Expected: `edge_should_terminate` → `TLS`; `forward_ip_from` → `trusted-proxies-only`; `health_checks_hit` → `upstream`.',
+)
+

@@ -5,7 +5,11 @@ cd "$ROOT"
 pass=0
 fail=0
 assert_eq() {
-  local got=$1 want=$2 msg=${3:-}
+  # Assign after `local` so values like -n are not parsed as local(1) flags.
+  local got want msg
+  got=$1
+  want=$2
+  msg=${3:-}
   if [[ "$got" == "$want" ]]; then
     pass=$((pass + 1))
   else
@@ -17,6 +21,8 @@ assert_eq() {
 source "$ROOT/solution.sh"
 run_tests() {
   assert_eq "$(many_to_one_nat_name)" "PAT"
+  assert_eq "$(hairpin_name)" "hairpin"
+  assert_eq "$(iptables_nat_table)" "nat"
 }
 run_tests
 echo "Passed $pass failed $fail"

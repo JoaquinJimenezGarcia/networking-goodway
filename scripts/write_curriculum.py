@@ -18,11 +18,70 @@ def _load(name: str, path: Path):
     return mod
 
 
+def exercise_readme(m: dict) -> str:
+    objs = "\n".join(f"- {o}" for o in m["objectives"])
+    guide = (m.get("exercise_guide") or "").strip()
+    if not guide:
+        guide = (
+            f"Edit `exercise.sh` and implement every stub so `./test.sh` passes. "
+            f"Each function encodes a fact or command pattern from **{m['title']}**."
+        )
+    examples = (m.get("exercise_examples") or "").strip()
+    if not examples:
+        examples = (
+            "Use the worked command examples in the lesson (with sample outputs) as your "
+            "source of truth. Your functions should return the same flags, values, or "
+            "labels the lesson teaches — not guesses."
+        )
+    return f"""# Exercise: {m['n']:02d}. {m['title']}
+
+## Goal
+
+Prove you can **retrieve** the networking ideas from the lesson, not just recognize them while reading.
+
+## Concepts from the lesson
+
+{objs}
+
+## Task
+
+{guide}
+
+## Files
+
+| File | Role |
+|------|------|
+| `exercise.sh` | Your implementation |
+| `test.sh` | Assertions — keep running until exit 0 |
+| `../../solutions/{m['slug']}/` | Peek only after a real attempt |
+
+## Examples / expected behavior
+
+{examples}
+
+## How to work
+
+1. Re-read the lesson sections that name the same ideas as the failing tests.
+2. On your lab host, re-run 2–3 commands from the lesson and note real output.
+3. Implement stubs to match lesson vocabulary (flags, record types, layer names, etc.).
+4. After green: say out loud *when* you would use each idea on an on-call.
+
+## Done when
+
+- `./test.sh` passes
+- You can redo it tomorrow without opening the solution
+
+**Struggle first (15+ minutes) before opening `solutions/{m['slug']}/`.**
+"""
+
+
 def lesson_md(m: dict) -> str:
     objs = "\n".join(f"- {o}" for o in m["objectives"])
     pits = "\n".join(f"- {p}" for p in m["pitfalls"])
     checks = "\n".join(f"{i}. {c}" for i, c in enumerate(m["checks"], 1))
     reads = "\n".join(f"- {r}" for r in m["reading"])
+    guide = (m.get("exercise_guide") or "").strip()
+    guide_block = f"\n### What you will build\n\n{guide}\n" if guide else ""
     return f"""---
 title: "{m['n']:02d}. {m['title']}"
 ---
@@ -40,6 +99,7 @@ title: "{m['n']:02d}. {m['title']}"
 ## Prerequisites
 
 Complete prior lessons. Prefer a Linux VM for `ip`/`ss`/`nft` examples; macOS works for many `curl`/`dig` drills.
+Type every command yourself and keep a lab notes file.
 
 {m['body'].strip()}
 
@@ -49,19 +109,25 @@ Complete prior lessons. Prefer a Linux VM for `ip`/`ss`/`nft` examples; macOS wo
 
 ## Exercises
 
-Work in `exercises/{m['slug']}/`:
+Work in `exercises/{m['slug']}/`. Read that folder's `README.md` before coding.
 
 ```bash
+cd exercises/{m['slug']}
+chmod +x test.sh exercise.sh 2>/dev/null || true
 ./test.sh
 ```
+{guide_block}
+### Study loop
 
-- **A:** make tests pass
-- **B:** run 2–3 real commands from this lesson in your lab and note outputs
-- **C:** rewrite answers from memory next day
+- **A (Drill):** make tests pass
+- **B (Apply):** run 2–3 real commands from this lesson in your lab and note outputs
+- **C (Challenge):** rewrite answers from memory next day
 
 **Do not open `solutions/{m['slug']}/` until after an honest attempt.**
 
 ## Self-check
+
+Answer without scrolling up:
 
 {checks}
 
@@ -78,7 +144,11 @@ cd "$ROOT"
 pass=0
 fail=0
 assert_eq() {{
-  local got=$1 want=$2 msg=${{3:-}}
+  # Assign after `local` so values like -n are not parsed as local(1) flags.
+  local got want msg
+  got=$1
+  want=$2
+  msg=${{3:-}}
   if [[ "$got" == "$want" ]]; then
     pass=$((pass + 1))
   else
@@ -97,7 +167,9 @@ echo "Passed $pass failed $fail"
 """
 
 
-def write_exercise(slug: str, kind: str, ex_map: dict):
+def write_exercise(m: dict, ex_map: dict):
+    slug = m["slug"]
+    kind = m["ex_kind"]
     starter, solution, tests = ex_map[kind]
     test_lines = "\n".join(f'  assert_eq "{got}" "{want}"' for got, want in tests)
     for name, body, src in (
@@ -113,12 +185,12 @@ def write_exercise(slug: str, kind: str, ex_map: dict):
             encoding="utf-8",
         )
         if name == "exercises":
-            (d / "README.md").write_text(
-                "Edit `exercise.sh`, then run `./test.sh`.\n", encoding="utf-8"
-            )
+            (d / "README.md").write_text(exercise_readme(m), encoding="utf-8")
         else:
             (d / "README.md").write_text(
-                "Reference solution — look only after attempting.\n", encoding="utf-8"
+                "Reference solution — look only after attempting.\n\n"
+                "Compare, then close and rewrite from memory tomorrow.\n",
+                encoding="utf-8",
             )
 
 
@@ -201,7 +273,7 @@ def main():
         d = ROOT / "lessons" / m["slug"]
         d.mkdir(parents=True, exist_ok=True)
         (d / "lesson.md").write_text(lesson_md(m), encoding="utf-8")
-        write_exercise(m["slug"], m["ex_kind"], exercises.EX)
+        write_exercise(m, exercises.EX)
 
     write_readme(modules)
     write_progress(modules)

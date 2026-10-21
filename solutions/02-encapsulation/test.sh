@@ -5,7 +5,11 @@ cd "$ROOT"
 pass=0
 fail=0
 assert_eq() {
-  local got=$1 want=$2 msg=${3:-}
+  # Assign after `local` so values like -n are not parsed as local(1) flags.
+  local got want msg
+  got=$1
+  want=$2
+  msg=${3:-}
   if [[ "$got" == "$want" ]]; then
     pass=$((pass + 1))
   else
@@ -17,6 +21,8 @@ assert_eq() {
 source "$ROOT/solution.sh"
 run_tests() {
   assert_eq "$(ethernet_typical_mtu)" "1500"
+  assert_eq "$(vpn_overhead_effect)" "lowers-MTU"
+  assert_eq "$(df_ping_purpose)" "probe-path-MTU"
 }
 run_tests
 echo "Passed $pass failed $fail"

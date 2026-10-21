@@ -1,2 +1,9 @@
 #!/usr/bin/env bash
-tshark_display_filter_flag() { echo "-Y"; }
+# tshark display filter flag.
+tshark_display_filter_flag() { printf "%s\n" "-Y"; }
+
+# Read capture file flag.
+tshark_read_flag() { printf "%s\n" "-r"; }
+
+# GUI cousin of tshark.
+packet_gui_tool() { printf "%s\n" "wireshark"; }

@@ -5,7 +5,11 @@ cd "$ROOT"
 pass=0
 fail=0
 assert_eq() {
-  local got=$1 want=$2 msg=${3:-}
+  # Assign after `local` so values like -n are not parsed as local(1) flags.
+  local got want msg
+  got=$1
+  want=$2
+  msg=${3:-}
   if [[ "$got" == "$want" ]]; then
     pass=$((pass + 1))
   else
@@ -17,6 +21,8 @@ assert_eq() {
 source "$ROOT/solution.sh"
 run_tests() {
   assert_eq "$(anycast_means)" "same-IP-many-places"
+  assert_eq "$(anycast_dns_role)" "resolver"
+  assert_eq "$(geodns_steers_with)" "DNS"
 }
 run_tests
 echo "Passed $pass failed $fail"
